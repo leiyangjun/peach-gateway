@@ -1,0 +1,25 @@
+# 创作日期：2026-04-20，作者：leiyangjun — 无 Nacos/Redis 的本地测试配置
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+        register-enabled: false
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+  autoconfigure:
+    exclude:
+      - com.alibaba.cloud.nacos.discovery.NacosDiscoveryAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+
+knife4j:
+  gateway:
+    enabled: false
+
+peach:
+  gateway:
+    redis-routes:
+      enabled: false

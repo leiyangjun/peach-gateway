@@ -1,0 +1,76 @@
+# 创作日期：2026-04-20，作者：leiyangjun — 网关：Nacos 注册、按服务名动态路由、Redis 自定义路由、Knife4j 聚合文档
+server:
+  port: 8090
+
+spring:
+  application:
+    name: peach-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        # 创作日期：2026-04-20，作者：leiyangjun — 无 Nacos 时尽量不阻塞启动（仍以实际注册为准）
+        fail-fast: false
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+          # 数值越小优先级越高；自定义 Redis 路由建议使用更小 order
+          order: 100
+          filters:
+            - name: StripPrefix
+              args:
+                parts: "1"
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      repositories:
+        enabled: false
+
+# 创作日期：2026-04-20，作者：leiyangjun — Knife4j 从注册中心发现子服务 OpenAPI（排除网关自身）
+knife4j:
+  gateway:
+    enabled: true
+    strategy: discover
+    discover:
+      enabled: true
+      version: openapi3
+      excluded-services:
+        - peach-gateway
+      oas3:
+        url: /v3/api-docs
+
+# 创作日期：2026-04-20，作者：leiyangjun — 业务扩展：Redis 自定义路由、文档转发鉴权（供后续 Vue 管理端对接）
+peach:
+  gateway:
+    # 创作日期：2026-04-20，作者：leiyangjun — 自定义路由 CRUD 的 HTTP 前缀（仅 peach.gateway.redis-routes.enabled=true 时注册 Controller）
+    admin:
+      redis-routes-path: /admin/gateway/redis-routes
+      # 创作日期：2026-04-20，作者：leiyangjun — 仅保护「Redis 路由 CRUD」路径；业务 API 权限请另写 GlobalFilter / SecurityWebFilterChain，勿与此混用
+      security:
+        api-key-enabled: false
+        api-key-header: X-Admin-Api-Key
+        api-key-value: ${PEACH_GATEWAY_ADMIN_API_KEY:}
+    redis-routes:
+      # 无 Redis 或仅使用 Nacos 动态路由时请设为 false，避免无意义连接
+      enabled: ${PEACH_GATEWAY_REDIS_ROUTES_ENABLED:false}
+      # Redis 值为 PeachRedisRoute 的 JSON 数组（见 org.peach.gateway.route.model.PeachRedisRoute 类注释示例）
+      redis-key: peach:gateway:routes:custom
+    doc:
+      token-propagation:
+        # 开启后向 /v3/api-docs、/v2/api-docs 等下游请求追加请求头（值请用环境变量注入，勿写死在 yml）
+        enabled: false
+        header-name: Authorization
+        static-value: ${PEACH_GATEWAY_DOC_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
