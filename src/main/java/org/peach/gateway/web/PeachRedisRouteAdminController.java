@@ -1,6 +1,5 @@
-package org.peach.gateway.admin.web;
+package org.peach.gateway.web;
 
-import jakarta.validation.Valid;
 import org.peach.gateway.route.model.PeachRedisRoute;
 import org.peach.gateway.route.store.PeachRedisRouteStore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -16,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+
+import jakarta.validation.Valid;
 import reactor.core.publisher.Mono;
 
 /**

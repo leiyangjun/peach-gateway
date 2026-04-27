@@ -1,4 +1,4 @@
-package org.peach.gateway.doc;
+package org.peach.gateway.filter;
 
 import org.peach.gateway.config.PeachDocTokenProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

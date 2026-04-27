@@ -69,8 +69,8 @@ public final class PeachRedisRouteConverter {
 
 	private static URI buildUri(PeachRedisRoute route) {
 		return switch (route.getUriType()) {
-			case REGISTERED_SERVICE -> URI.create("lb://" + route.getTarget().trim());
-			case EXPLICIT_URI -> URI.create(route.getTarget().trim());
+			case PeachRouteTargetType.REGISTERED_SERVICE -> URI.create("lb://" + route.getTarget().trim());
+			case PeachRouteTargetType.EXPLICIT_URI -> URI.create(route.getTarget().trim());
 		};
 	}
 

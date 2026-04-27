@@ -1,4 +1,4 @@
-package org.peach.gateway.admin.security;
+package org.peach.gateway.filter;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

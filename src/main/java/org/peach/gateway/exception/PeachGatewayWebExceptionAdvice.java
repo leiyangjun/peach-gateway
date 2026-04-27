@@ -1,4 +1,4 @@
-package org.peach.gateway.admin.web;
+package org.peach.gateway.exception;
 
 import java.util.HashMap;
 import java.util.Map;

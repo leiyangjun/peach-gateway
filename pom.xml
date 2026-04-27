@@ -63,6 +63,9 @@
 		<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
 		<maven-javadoc-plugin.version>3.10.1</maven-javadoc-plugin.version>
 		<maven-gpg-plugin.version>3.2.7</maven-gpg-plugin.version>
+		<!-- 与 peach-common-start 对齐，兼容 Spring Boot 4 -->
+		<springdoc-openapi.version>3.0.2</springdoc-openapi.version>
+		<swagger-jakarta.version>2.2.43</swagger-jakarta.version>
 	</properties>
 
 	<dependencyManagement>
@@ -73,6 +76,17 @@
 				<version>${peach-dependencies.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
+			</dependency>
+			<!-- Spring Cloud BOM 等可能托管旧版 springdoc-common，与显式声明的 webflux-ui 3.0.x 混用会 AbstractMethodError -->
+			<dependency>
+				<groupId>org.springdoc</groupId>
+				<artifactId>springdoc-openapi-starter-common</artifactId>
+				<version>${springdoc-openapi.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.springdoc</groupId>
+				<artifactId>springdoc-openapi-starter-webflux-api</artifactId>
+				<version>${springdoc-openapi.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -97,15 +111,46 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-redis-reactive</artifactId>
 		</dependency>
-		<!-- 创作日期：2026-04-20，作者：leiyangjun — 网关聚合 OpenAPI/Knife4j（版本由 knife4j-dependencies BOM 管理） -->
+		<!-- 网关聚合 Swagger UI（WebFlux + Spring Cloud Gateway），替代 Knife4j -->
 		<dependency>
-			<groupId>com.github.xiaoymin</groupId>
-			<artifactId>knife4j-gateway-spring-boot-starter</artifactId>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+			<version>${springdoc-openapi.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>io.swagger.core.v3</groupId>
+					<artifactId>swagger-annotations</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-annotations-jakarta</artifactId>
+			<version>${swagger-jakarta.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-models-jakarta</artifactId>
+			<version>${swagger-jakarta.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-core-jakarta</artifactId>
+			<version>${swagger-jakarta.version}</version>
 		</dependency>
 		<!-- 创作日期：2026-04-20，作者：leiyangjun — Redis 路由 CRUD 请求体验证 -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<!-- 创作日期：2026-04-21，作者：leiyangjun — 统一鉴权采用 SecurityWebFilterChain 标准方案 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
