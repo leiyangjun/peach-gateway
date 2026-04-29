@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 创作日期：2026-04-20，作者：leiyangjun — Spring Cloud Gateway 应用，版本由 peach-dependencies BOM 统一导入 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -17,9 +16,8 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<name>peach-gateway</name>
-	<description>Peach API 网关（Spring Cloud Gateway Server WebFlux），依赖 peach-dependencies 统一版本</description>
+	<description>Peach API 网关：服务发现动态路由 + API 文档门户</description>
 
-	<!-- 创作日期：2026-04-20，作者：leiyangjun — Gitee 镜像 SSH：git@gitee.com:leiyangjun/peach-gateway.git；默认分支与 Gitee 一致为 master -->
 	<url>https://github.com/leiyangjun/peach-gateway</url>
 
 	<licenses>
@@ -46,7 +44,6 @@
 		<url>https://github.com/leiyangjun/peach-gateway</url>
 	</scm>
 
-	<!-- 创作日期：2026-04-20，作者：leiyangjun — 与 peach-dependencies、settings.xml 中 server id=central 一致 -->
 	<distributionManagement>
 		<repository>
 			<id>central</id>
@@ -57,15 +54,11 @@
 
 	<properties>
 		<java.version>21</java.version>
-		<!-- 创作日期：2026-04-20，作者：leiyangjun — 与 sibling 工程 peach-dependencies 版本对齐；发布前可改为 RELEASE -->
 		<peach-dependencies.version>0.0.1-SNAPSHOT</peach-dependencies.version>
 		<central.publishing.maven.version>0.7.0</central.publishing.maven.version>
 		<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
 		<maven-javadoc-plugin.version>3.10.1</maven-javadoc-plugin.version>
 		<maven-gpg-plugin.version>3.2.7</maven-gpg-plugin.version>
-		<!-- 与 peach-common-start 对齐，兼容 Spring Boot 4 -->
-		<springdoc-openapi.version>3.0.2</springdoc-openapi.version>
-		<swagger-jakarta.version>2.2.43</swagger-jakarta.version>
 	</properties>
 
 	<dependencyManagement>
@@ -77,27 +70,14 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
-			<!-- Spring Cloud BOM 等可能托管旧版 springdoc-common，与显式声明的 webflux-ui 3.0.x 混用会 AbstractMethodError -->
-			<dependency>
-				<groupId>org.springdoc</groupId>
-				<artifactId>springdoc-openapi-starter-common</artifactId>
-				<version>${springdoc-openapi.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.springdoc</groupId>
-				<artifactId>springdoc-openapi-starter-webflux-api</artifactId>
-				<version>${springdoc-openapi.version}</version>
-			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
 	<dependencies>
-		<!-- 创作日期：2026-04-20，作者：leiyangjun — Spring Cloud Gateway 5（WebFlux）版本由 spring-cloud-dependencies 托管 -->
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
 		</dependency>
-		<!-- 创作日期：2026-04-20，作者：leiyangjun — 与 Nacos 注册发现、lb:// 路由配合 -->
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-loadbalancer</artifactId>
@@ -106,56 +86,6 @@
 			<groupId>com.alibaba.cloud</groupId>
 			<artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
 		</dependency>
-		<!-- 创作日期：2026-04-20，作者：leiyangjun — 自定义动态路由（JSON 存 Redis） -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-redis-reactive</artifactId>
-		</dependency>
-		<!-- 网关聚合 Swagger UI（WebFlux + Spring Cloud Gateway），替代 Knife4j -->
-		<dependency>
-			<groupId>org.springdoc</groupId>
-			<artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
-			<version>${springdoc-openapi.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>io.swagger.core.v3</groupId>
-					<artifactId>swagger-annotations</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>io.swagger.core.v3</groupId>
-			<artifactId>swagger-annotations-jakarta</artifactId>
-			<version>${swagger-jakarta.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>io.swagger.core.v3</groupId>
-			<artifactId>swagger-models-jakarta</artifactId>
-			<version>${swagger-jakarta.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>io.swagger.core.v3</groupId>
-			<artifactId>swagger-core-jakarta</artifactId>
-			<version>${swagger-jakarta.version}</version>
-		</dependency>
-		<!-- 创作日期：2026-04-20，作者：leiyangjun — Redis 路由 CRUD 请求体验证 -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-validation</artifactId>
-		</dependency>
-		<!-- 创作日期：2026-04-21，作者：leiyangjun — 统一鉴权采用 SecurityWebFilterChain 标准方案 -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-security</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-actuator</artifactId>
-		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -163,14 +93,15 @@
 		</dependency>
 	</dependencies>
 
-	<!--
-		创作日期：2026-04-20，作者：leiyangjun
-		central-publishing-maven-plugin：对接 Sonatype Central Portal。
-		发布：settings.xml 配置 &lt;server&gt;&lt;id&gt;central&lt;/id&gt;... 后执行 mvn clean deploy -Prelease-sign。
-	-->
 	<build>
 		<plugins>
-			<!-- 创作日期：2026-04-20，作者：leiyangjun — 无 Nacos/Redis 环境时强制 test 配置，保证 mvn test 可通过 -->
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<mainClass>org.peach.gateway.GatewayApp</mainClass>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>

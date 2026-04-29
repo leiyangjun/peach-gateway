@@ -1,93 +1,27 @@
-# 创作日期：2026-04-20，作者：leiyangjun — 网关：Nacos 注册、按服务名动态路由、Redis 自定义路由、SpringDoc 聚合文档
 server:
   port: 8090
-
 spring:
   application:
     name: peach-gateway
   cloud:
     nacos:
       discovery:
-        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
-        namespace: ${NACOS_NAMESPACE:}
+        server-addr: ${NACOS_SERVER_ADDR:192.168.99.100:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        namespace: ${NACOS_NAMESPACE:dev}
         group: ${NACOS_GROUP:DEFAULT_GROUP}
-        # 创作日期：2026-04-20，作者：leiyangjun — 无 Nacos 时尽量不阻塞启动（仍以实际注册为准）
+        ip: ${NACOS_REGISTER_IP:}
+        port: ${NACOS_REGISTER_PORT:${server.port}}
         fail-fast: false
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-          # 数值越小优先级越高；自定义 Redis 路由建议使用更小 order
-          order: 100
-          filters:
-            - name: StripPrefix
-              args:
-                parts: "1"
-  data:
-    redis:
-      host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
-      repositories:
-        enabled: false
+      server:
+        webflux:
+          discovery:
+            locator:
+              # 关闭自动 RouteDefinitionLocator，改用手工 DiscoveryClient 动态路由（见 route.discovery 包）
+              enabled: false
 
-# SpringDoc（WebFlux 网关）：Swagger UI + 多服务 OpenAPI 聚合（发现逻辑见 SpringdocGatewayDiscoveryConfiguration）
-springdoc:
-  enable-native-support: true
-  api-docs:
-    enabled: true
-    path: /v3/api-docs
-  swagger-ui:
-    enabled: true
-    path: /swagger-ui.html
-    config-url: /v3/api-docs/swagger-config
-  gateway:
-    discovery:
-      enabled: true
-      # 逗号分隔，不参与聚合的服务 id（与 spring.application.name 一致）
-      excluded-services: peach-gateway
-
-# 创作日期：2026-04-20，作者：leiyangjun — 业务扩展：Redis 自定义路由、文档转发鉴权（供后续 Vue 管理端对接）
-peach:
-  gateway:
-    # 创作日期：2026-04-20，作者：leiyangjun — 自定义路由 CRUD 的 HTTP 前缀（仅 peach.gateway.redis-routes.enabled=true 时注册 Controller）
-    admin:
-      redis-routes-path: /admin/gateway/redis-routes
-      # 创作日期：2026-04-20，作者：leiyangjun — 仅保护「Redis 路由 CRUD」路径；业务 API 权限请另写 GlobalFilter / SecurityWebFilterChain，勿与此混用
-      security:
-        api-key-enabled: false
-        api-key-header: X-Admin-Api-Key
-        api-key-value: ${PEACH_GATEWAY_ADMIN_API_KEY:}
-    # 统一鉴权：OAuth2 资源服务器；白名单放行经网关转发的授权端点、Swagger、OpenAPI
-    auth:
-      enabled: true
-      header-name: Authorization
-      require-bearer-prefix: true
-      issuer: ${PEACH_OAUTH2_ISSUER:http://127.0.0.1:8084}
-      jwt-secret: ${PEACH_AUTH_JWT_SECRET:please-change-this-to-32-plus-bytes-secret}
-      whitelist-paths:
-        - /actuator/**
-        - /*/auth/login/**
-        - /swagger-ui/**
-        - /swagger-ui.html
-        - /v3/api-docs/**
-        - /webjars/**
-    redis-routes:
-      # 无 Redis 或仅使用 Nacos 动态路由时请设为 false，避免无意义连接
-      enabled: ${PEACH_GATEWAY_REDIS_ROUTES_ENABLED:false}
-      # Redis 值为 PeachRedisRoute 的 JSON 数组（见 org.peach.gateway.route.model.PeachRedisRoute 类注释示例）
-      redis-key: peach:gateway:routes:custom
-    doc:
-      token-propagation:
-        # 开启后向 /v3/api-docs、/v2/api-docs 等下游请求追加请求头（值请用环境变量注入，勿写死在 yml）
-        enabled: false
-        header-name: Authorization
-        static-value: ${PEACH_GATEWAY_DOC_TOKEN:}
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
+# Swagger 文档门户：peach.swagger.enabled；HTML 另受 peach.swagger.html-enabled 与 prod/product/produce profile 默认关闭规则约束
+# 服务列表：GET /peach-doc-portal/services；门户页：GET /index.html
+# 各微服务可在 server.service-description 配置说明（写入 Nacos 元数据 peach.service-description）；需 server.forward-headers-strategy: framework

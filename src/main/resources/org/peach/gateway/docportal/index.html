@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Peach API 文档门户</title>
+	<style>
+		:root { font-family: system-ui, sans-serif; color: #1a1a1a; background: #f6f7fb; }
+		body { margin: 0; padding: 2rem; max-width: 1100px; margin-inline: auto; }
+		h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+		p.sub { color: #555; margin-top: 0; font-size: 0.9rem; }
+		table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); table-layout: fixed; }
+		th, td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid #eee; vertical-align: middle; }
+		th { background: #f0f2f8; font-weight: 600; font-size: 0.85rem; }
+		tr:last-child td { border-bottom: none; }
+		th.col-name { width: 22%; }
+		th.col-desc { width: 48%; min-width: 14rem; }
+		th.col-action { width: 30%; text-align: right; }
+		td.col-action { text-align: right; }
+		a.btn { display: inline-block; padding: 0.35rem 0.75rem; background: #2563eb; color: #fff !important; text-decoration: none; border-radius: 6px; font-size: 0.85rem; }
+		a.btn:hover { background: #1d4ed8; }
+		.err { color: #b91c1c; margin-top: 1rem; }
+		.muted { color: #888; font-size: 0.8rem; }
+	</style>
+</head>
+<body>
+	<h1>API 文档门户</h1>
+	<p class="sub">数据来自注册中心；点击按钮经网关打开对应服务的 Swagger UI。</p>
+	<p class="muted">可在下游服务点击「回到首页」回到该页面。</p>
+	<div id="status">正在加载服务列表…</div>
+	<table id="tbl" style="display:none" aria-label="服务与文档">
+		<thead>
+			<tr>
+				<th class="col-name">服务名称</th>
+				<th class="col-desc">服务说明</th>
+				<th class="col-action">操作</th>
+			</tr>
+		</thead>
+		<tbody id="tbody"></tbody>
+	</table>
+	<div id="err" class="err" style="display:none"></div>
+	<script>
+	(function () {
+		var apiPath = '/peach-doc-portal/services';
+		var statusEl = document.getElementById('status');
+		var errEl = document.getElementById('err');
+		var tbl = document.getElementById('tbl');
+		var tbody = document.getElementById('tbody');
+
+		function swaggerUrl(serviceId) {
+			return '/' + serviceId + '/swagger-ui/index.html';
+		}
+
+		function stripQuery(url) {
+			if (!url) return url;
+			var i = url.indexOf('?');
+			return i >= 0 ? url.substring(0, i) : url;
+		}
+
+		fetch(apiPath, { credentials: 'same-origin' })
+			.then(function (r) {
+				if (!r.ok) throw new Error('HTTP ' + r.status);
+				return r.json();
+			})
+			.then(function (list) {
+				statusEl.style.display = 'none';
+				if (!list || !list.length) {
+					errEl.textContent = '当前未发现可展示的服务（或均被排除）。';
+					errEl.style.display = 'block';
+					return;
+				}
+				list.forEach(function (row) {
+					var id = row.serviceId;
+					var tr = document.createElement('tr');
+					var tdName = document.createElement('td');
+					tdName.className = 'col-name';
+					tdName.textContent = id || '';
+					var tdDesc = document.createElement('td');
+					tdDesc.className = 'col-desc';
+					tdDesc.textContent = row.description || '';
+					var tdGo = document.createElement('td');
+					tdGo.className = 'col-action';
+					var a = document.createElement('a');
+					a.className = 'btn';
+					a.href = stripQuery(swaggerUrl(id));
+					a.textContent = '查看 API 文档';
+					tdGo.appendChild(a);
+					tr.appendChild(tdName);
+					tr.appendChild(tdDesc);
+					tr.appendChild(tdGo);
+					tbody.appendChild(tr);
+				});
+				tbl.style.display = 'table';
+			})
+			.catch(function (e) {
+				statusEl.style.display = 'none';
+				errEl.style.display = 'block';
+				errEl.textContent = '加载失败：' + (e && e.message ? e.message : e) +
+					'。请确认网关已启用 Nacos 发现且本页与 ' + apiPath + ' 未被其它路由占用。';
+			});
+	})();
+	</script>
+</body>
+</html>
