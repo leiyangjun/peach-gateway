@@ -3,6 +3,7 @@ package org.peach.gateway.web;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.client.ServiceInstance;
@@ -13,13 +14,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 返回注册中心中的全部服务 id 与说明（Swagger URL 由前端拼装），不做任何服务排除。
+ * 返回注册中心中的全部服务 id 与说明（Swagger URL 由前端拼装），不做任何服务排除（用于网关API文档入口门户HTML页面）。
  */
 @RestController
 @ConditionalOnProperty(prefix = "peach.swagger", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class DiscoveryClientController {
 
-	private static final String META_SERVICE_DESCRIPTION = "peach.service-description";
+	/** 与本地配置、Nacos 元数据键一致：{@code server.description} */
+	private static final String META_DESCRIPTION = "server.description";
+
+	/** 兼容中间版本 starter 写入的 {@code peach.description} */
+	private static final String META_DESCRIPTION_COMPAT_PEACH = "peach.description";
+
+	/** 兼容更早的 {@code peach.service-description} */
+	private static final String META_DESCRIPTION_LEGACY = "peach.service-description";
 
 	private static final boolean LOWER_CASE_SERVICE_ID = true;
 
@@ -67,7 +75,16 @@ public class DiscoveryClientController {
 			if (si.getMetadata() == null) {
 				continue;
 			}
-			String v = si.getMetadata().get(META_SERVICE_DESCRIPTION);
+			Map<String, String> meta = si.getMetadata();
+			String v = meta.get(META_DESCRIPTION);
+			if (StringUtils.hasText(v)) {
+				return v.trim();
+			}
+			v = meta.get(META_DESCRIPTION_COMPAT_PEACH);
+			if (StringUtils.hasText(v)) {
+				return v.trim();
+			}
+			v = meta.get(META_DESCRIPTION_LEGACY);
 			if (StringUtils.hasText(v)) {
 				return v.trim();
 			}

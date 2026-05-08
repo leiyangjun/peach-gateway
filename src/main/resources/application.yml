@@ -1,5 +1,6 @@
 server:
   port: 8090
+
 spring:
   application:
     name: peach-gateway
@@ -15,6 +16,27 @@ spring:
         port: ${NACOS_REGISTER_PORT:${server.port}}
         fail-fast: false
     gateway:
+      # 浏览器跨域（Swagger UI、其它端口前端直连网关）统一在网关层放行，下游微服务无需重复配置 CORS
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            # 开发/内网场景用模式匹配；生产建议改为具体域名列表或走环境变量
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - HEAD
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            exposedHeaders:
+              - Authorization
+              - Content-Type
+            allowCredentials: false
+            maxAge: 3600
       server:
         webflux:
           discovery:
@@ -24,4 +46,4 @@ spring:
 
 # Swagger 文档门户：peach.swagger.enabled；HTML 另受 peach.swagger.html-enabled 与 prod/product/produce profile 默认关闭规则约束
 # 服务列表：GET /peach-doc-portal/services；门户页：GET /index.html
-# 各微服务可在 server.service-description 配置说明（写入 Nacos 元数据 peach.service-description）；需 server.forward-headers-strategy: framework
+# 各微服务可在 server.description 配置说明（写入 Nacos 实例元数据键 server.description）；需 server.forward-headers-strategy: framework

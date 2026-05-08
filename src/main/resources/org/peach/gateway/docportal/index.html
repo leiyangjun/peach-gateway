@@ -47,6 +47,7 @@
 		var tbl = document.getElementById('tbl');
 		var tbody = document.getElementById('tbody');
 
+		// 与 peach-common-start 通过 EnvironmentPostProcessor 注入的 springdoc.swagger-ui.path 一致（业务 yml 可不写）
 		function swaggerUrl(serviceId) {
 			return '/' + serviceId + '/swagger-ui/index.html';
 		}
