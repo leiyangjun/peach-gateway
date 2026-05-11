@@ -13,11 +13,15 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 /**
  * 返回注册中心中的全部服务 id 与说明（Swagger URL 由前端拼装），不做任何服务排除（用于网关API文档入口门户HTML页面）。
  */
 @RestController
 @ConditionalOnProperty(prefix = "peach.swagger", name = "enabled", havingValue = "true", matchIfMissing = true)
+@Tag(name = "文档门户", description = "注册中心服务列表，供 /index.html 门户页使用（非各微服务 OpenAPI 聚合）")
 public class DiscoveryClientController {
 
 	/** 与本地配置、Nacos 元数据键一致：{@code server.description} */
@@ -38,6 +42,7 @@ public class DiscoveryClientController {
 	}
 
 	@GetMapping(path = "/peach-doc-portal/services", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "注册中心服务列表（含说明）")
 	public List<SwaggerPortalServiceRow> listServices() {
 		return discoveryClient.getServices()
 			.stream()

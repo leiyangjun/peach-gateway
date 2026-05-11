@@ -9,11 +9,13 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import reactor.core.publisher.Mono;
 
 /**
  * Swagger 门户静态页（根路径 {@code /index.html}）。
  */
+@Hidden
 @Controller
 @ConditionalOnSwaggerHtmlEnabled
 @ConditionalOnProperty(prefix = "peach.swagger", name = "enabled", havingValue = "true", matchIfMissing = true)

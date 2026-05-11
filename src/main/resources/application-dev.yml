@@ -1,0 +1,2 @@
+# 本地/联调示例：可在此追加仅开发环境配置；启动示例：--spring.profiles.active=dev
+# （原 diagnosis 开关已随 RouteController 简化移除，路由排查直接使用 GET /routes）

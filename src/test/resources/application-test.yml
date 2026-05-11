@@ -1,3 +1,10 @@
+# 单测不启 springdoc UI，避免无关 WARN；网关本机文档见主 application.yml
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 spring:
   cloud:
     nacos:

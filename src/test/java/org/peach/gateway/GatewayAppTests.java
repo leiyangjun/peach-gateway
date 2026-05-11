@@ -55,4 +55,22 @@ class GatewayAppTests {
 	void discoveryClientControllerBeanExists(@Autowired org.peach.gateway.web.DiscoveryClientController controller) {
 		assertThat(controller).isNotNull();
 	}
+
+	@Test
+	void routeDiagnosisReturnsJsonSnapshot() {
+		webTestClient.get()
+			.uri("/routes")
+			.exchange()
+			.expectStatus()
+			.isOk()
+			.expectHeader()
+			.contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+			.expectBody()
+			.jsonPath("$.generatedAtEpochMs")
+			.exists()
+			.jsonPath("$.discoveryServiceNames")
+			.exists()
+			.jsonPath("$.routes")
+			.exists();
+	}
 }

@@ -25,8 +25,8 @@
 </head>
 <body>
 	<h1>API 文档门户</h1>
-	<p class="sub">数据来自注册中心；点击按钮经网关打开对应服务的 Swagger UI。</p>
-	<p class="muted">可在下游服务点击「回到首页」回到该页面。</p>
+	<p class="sub">数据来自注册中心；点击按钮经网关打开对应服务的 Swagger UI。本网关（peach-gateway）无服务前缀，直达根路径 Swagger UI。</p>
+	<p class="muted">其它服务仍为 <code>/{serviceId}/swagger-ui.html</code>。Swagger 中可通过说明链接或「External documentation」回到本页。</p>
 	<div id="status">正在加载服务列表…</div>
 	<table id="tbl" style="display:none" aria-label="服务与文档">
 		<thead>
@@ -47,9 +47,13 @@
 		var tbl = document.getElementById('tbl');
 		var tbody = document.getElementById('tbody');
 
-		// 与 peach-common-start 通过 EnvironmentPostProcessor 注入的 springdoc.swagger-ui.path 一致（业务 yml 可不写）
+		// 本网关 springdoc 在根路径：直达 /swagger-ui/index.html，避免经 /peach-gateway/ 再 lb 回环
 		function swaggerUrl(serviceId) {
-			return '/' + serviceId + '/swagger-ui/index.html';
+			var sid = (serviceId || '').toLowerCase();
+			if (sid === 'peach-gateway') {
+				return '/swagger-ui/index.html';
+			}
+			return '/' + serviceId + '/swagger-ui.html';
 		}
 
 		function stripQuery(url) {

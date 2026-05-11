@@ -1,5 +1,24 @@
 server:
   port: 8090
+  # 便于经 X-Forwarded-* / Forwarded 还原对外 URL；部分 springdoc 场景下可辅助识别前缀（与下游微服务一致）
+  forward-headers-strategy: framework
+
+peach:
+  gateway:
+    # 路由排查 JSON：GET http://网关:8090/routes（匿名，见 TokenGlobalFilter）
+    discovery:
+      # RouteListWatcher：比对注册中心服务列表变更并 RefreshRoutes（毫秒）
+      route-watch-interval-ms: ${PEACH_GATEWAY_ROUTE_WATCH_INTERVAL_MS:10000}
+
+# 网关本机 Swagger（WebFlux + springdoc）：非聚合，仅扫描网关自身 Controller
+# UI：http://网关:8090/swagger-ui.html ；OpenAPI：http://网关:8090/v3/api-docs
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  show-actuator: false
+  packages-to-scan: org.peach.gateway.web
 
 spring:
   application:
@@ -43,7 +62,13 @@ spring:
             locator:
               # 关闭自动 RouteDefinitionLocator，改用手工 DiscoveryClient 动态路由（见 route.discovery 包）
               enabled: false
-
+management:
+  health:
+    discovery:
+      enabled: true
 # Swagger 文档门户：peach.swagger.enabled；HTML 另受 peach.swagger.html-enabled 与 prod/product/produce profile 默认关闭规则约束
 # 服务列表：GET /peach-doc-portal/services；门户页：GET /index.html
+# 经网关访问某微服务 Swagger（路径必须带注册中心 serviceId 前缀，与 DynamicDiscoveryRouteDefinitionLocator 一致）：
+#   http://网关主机:8090/{serviceId}/swagger-ui.html  例如 /peach-auth-service/swagger-ui.html
+# 网关自身 springdoc UI：/swagger-ui.html（见上文 springdoc）；微服务仍用 /{serviceId}/swagger-ui.html。
 # 各微服务可在 server.description 配置说明（写入 Nacos 实例元数据键 server.description）；需 server.forward-headers-strategy: framework
