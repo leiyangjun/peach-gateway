@@ -73,4 +73,26 @@ class GatewayAppTests {
 			.jsonPath("$.routes")
 			.exists();
 	}
+
+	/**
+	 * 未命中动态路由且无网关自身 Handler 时，由 {@code GatewayIsolationErrorWebExceptionHandler} 返回 code/msg（中间三位为 HTTP 404）。
+	 */
+	@Test
+	void noRouteReturnsIsolationJsonBody() {
+		String path = "/__gateway_isolation_404__/nope";
+		webTestClient.get()
+			.uri(path)
+			.exchange()
+			.expectStatus()
+			.isNotFound()
+			.expectHeader()
+			.contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+			.expectBody()
+			.jsonPath("$.code")
+			.isEqualTo("GWAY4044001")
+			.jsonPath("$.msg")
+			.isEqualTo("资源不存在")
+			.jsonPath("$.data")
+			.doesNotExist();
+	}
 }
