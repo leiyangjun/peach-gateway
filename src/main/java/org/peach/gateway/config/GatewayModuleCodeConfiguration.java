@@ -2,7 +2,6 @@ package org.peach.gateway.config;
 
 import java.util.Objects;
 
-import org.peach.gateway.support.ModuleCodeCache;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -20,11 +19,14 @@ import org.springframework.core.annotation.Order;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class GatewayModuleCodeConfiguration {
 
+	/**
+	 * 读取并校验 {@code spring.application.module-code}（必须为四位），通过后写入 {@link ModuleCodeCache}。
+	 */
 	public GatewayModuleCodeConfiguration(@Value("${spring.application.module-code}") String moduleCode) {
 		String mc = Objects.requireNonNull(moduleCode, "spring.application.module-code").trim();
 		if (mc.length() != 4) {
 			throw new IllegalArgumentException("spring.application.module-code 必须为四位字符串，当前长度=" + mc.length());
 		}
-		ModuleCodeCache.setCachedModule(mc);
+		ModuleCodeCache.setCachedModule(moduleCode);
 	}
 }

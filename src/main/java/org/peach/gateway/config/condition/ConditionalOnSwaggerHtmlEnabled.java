@@ -8,6 +8,11 @@ import java.lang.annotation.Target;
 
 import org.springframework.context.annotation.Conditional;
 
+/**
+ * 组合条件：当 {@link SwaggerEnabledCondition} 为真时启用被标注类型（控制 Swagger 门户 HTML 等）。
+ *
+ * @author leiyangjun
+ */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Documented

@@ -19,8 +19,11 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * 基于 {@link DiscoveryClient#getServices()} 为每个服务 id 生成路由：
- * {@code Path=/{serviceId}/**} → {@code lb://{serviceId}}，并附加前缀头与路径重写。
+ * 基于 {@link DiscoveryClient#getServices()} 为每个服务 id 生成一条路由定义：
+ * 匹配 {@code /{serviceId}/**}，转发至 {@code lb://{serviceId}}，并追加 {@code X-Forwarded-Prefix}、
+ * {@code X-Peach-Gateway-Prefix} 与 {@code RewritePath} 去掉 URL 中的服务前缀段。
+ *
+ * @author leiyangjun
  */
 public class DynamicDiscoveryRouteDefinitionLocator implements RouteDefinitionLocator {
 
@@ -34,6 +37,7 @@ public class DynamicDiscoveryRouteDefinitionLocator implements RouteDefinitionLo
 		this.discoveryClient = discoveryClient;
 	}
 
+	/** 在弹性线程上拉取服务名并映射为路由定义（避免阻塞 Reactor 事件线程）。 */
 	@Override
 	public Flux<RouteDefinition> getRouteDefinitions() {
 		return serviceIds().map(this::normalizeServiceId).filter(StringUtils::hasText).map(this::buildRoute);

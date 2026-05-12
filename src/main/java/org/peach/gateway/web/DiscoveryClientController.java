@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.peach.gateway.support.web.ApiResult;
+import org.peach.gateway.result.web.ApiResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -18,7 +18,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
- * 返回注册中心中的全部服务 id 与说明（Swagger URL 由前端拼装），不做任何服务排除（用于网关API文档入口门户HTML页面）。
+ * 返回注册中心中的全部服务 id 与说明（Swagger URL 由前端拼装），不做任何服务排除（用于网关 API 文档入口门户 HTML）。
+ *
+ * @author leiyangjun
  */
 @RestController
 @ConditionalOnProperty(prefix = "peach.swagger", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -42,6 +44,7 @@ public class DiscoveryClientController {
 		this.discoveryClient = discoveryClient;
 	}
 
+	/** 按注册中心服务 id 排序返回列表，说明取自实例元数据（多键兼容，见类内常量）。 */
 	@GetMapping(path = "/peach-doc-portal/services", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "注册中心服务列表（含说明）")
 	public ApiResult<List<SwaggerPortalServiceRow>> listServices() {

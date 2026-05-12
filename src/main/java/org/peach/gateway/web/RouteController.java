@@ -3,7 +3,7 @@ package org.peach.gateway.web;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.peach.gateway.support.web.ApiResult;
+import org.peach.gateway.result.web.ApiResult;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.route.RouteLocator;
@@ -24,6 +24,8 @@ import reactor.core.publisher.Mono;
  * <p>
  * 路径固定为 {@code GET /routes}（与 {@code application.yml}、网关 JWT 匿名白名单一致）。
  * </p>
+ *
+ * @author leiyangjun
  */
 @RestController
 @RequestMapping("/routes")
@@ -39,7 +41,7 @@ public class RouteController {
 		this.discoveryClient = discoveryClient;
 	}
 
-	/** 当前生效的路由快照 + 注册中心返回的服务 id 列表（便于对照动态路由是否应有 {@code /服务名/**}）。 */
+	/** 收集 {@link RouteLocator} 路由快照与注册中心服务 id，封装为 {@link ApiResult}。 */
 	@GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "当前网关路由快照与注册中心服务名")
 	public Mono<ResponseEntity<ApiResult<GatewayRoutesSnapshot>>> routes() {

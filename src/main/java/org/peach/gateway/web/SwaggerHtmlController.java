@@ -13,7 +13,13 @@ import io.swagger.v3.oas.annotations.Hidden;
 import reactor.core.publisher.Mono;
 
 /**
- * Swagger 门户静态页（根路径 {@code /index.html}）。
+ * 提供类路径静态资源 {@code docportal/index.html} 作为 Swagger 文档门户入口（{@code GET /index.html}）。
+ * <p>
+ * 受 {@link org.peach.gateway.config.condition.ConditionalOnSwaggerHtmlEnabled} 与 {@code peach.swagger.enabled}
+ * 条件控制是否注册。
+ * </p>
+ *
+ * @author leiyangjun
  */
 @Hidden
 @Controller
@@ -23,6 +29,7 @@ public class SwaggerHtmlController {
 
 	private static final Resource HTML = new ClassPathResource("org/peach/gateway/docportal/index.html");
 
+	/** 返回门户 HTML 资源（不读磁盘路径，自 classpath 加载）。 */
 	@GetMapping(path = "/index.html", produces = MediaType.TEXT_HTML_VALUE)
 	@ResponseBody
 	public Mono<Resource> portal() {

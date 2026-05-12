@@ -10,9 +10,12 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 /**
  * Swagger 门户 HTML 是否暴露：显式配置 {@code peach.swagger.html-enabled} 优先生效；
  * 未配置时，若激活 profile 为 prod / product / produce（忽略大小写）则默认关闭，否则默认开启。
+ *
+ * @author leiyangjun
  */
 public class SwaggerEnabledCondition implements Condition {
 
+	/** 与 {@link ConditionalOnSwaggerHtmlEnabled} 配套：判断是否注册 Swagger 门户 HTML 相关 Bean。 */
 	@Override
 	public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
 		Environment env = context.getEnvironment();

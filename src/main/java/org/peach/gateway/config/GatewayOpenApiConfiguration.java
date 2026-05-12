@@ -15,10 +15,13 @@ import io.swagger.v3.oas.models.servers.Server;
  * 当前依赖的 swagger-core 中 {@link Info} 无 {@code externalDocs} 字段，故仅在 {@link OpenAPI} 根级设置 {@code externalDocs}；
  * 部分 Swagger UI 版本对根级 {@code externalDocs} 展示不完整，因此在 {@code info.description} 中增加 Markdown 链接作为可点击兜底。
  * </p>
+ *
+ * @author leiyangjun
  */
 @Configuration
 public class GatewayOpenApiConfiguration {
 
+	/** 注册网关聚合 OpenAPI 定义（含 Servers 与文档门户外链）。 */
 	@Bean
 	public OpenAPI gatewayOpenApi(@Value("${spring.application.name}") String applicationName) {
 		String prefix = "/" + applicationName;

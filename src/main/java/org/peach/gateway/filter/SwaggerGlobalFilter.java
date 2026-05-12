@@ -12,14 +12,13 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * 为 SpringDoc / Swagger UI 场景补齐转发头：把浏览器访问网关时的 Host、Scheme、Port 写入标准转发头，
- * 供下游在 {@code forward-headers-strategy=framework} 下还原<strong>客户端可见</strong>的绝对 URL（如返回文档门户的链接）。
+ * 在请求进入路由前补齐转发相关请求头：当上游未带 {@code X-Forwarded-*} / {@code Forwarded} 时，根据当前请求的
+ * Host、scheme、解析出的客户端端口写入，便于下游在 {@code forward-headers-strategy=framework} 下还原对外 URL。
  * <p>
- * 若未设置，下游常见到的 {@code Host} 多为实例地址（例如 {@code 192.168.x.x:8084}），OpenAPI 中的链接会错误指向微服务端口。
+ * 若请求已携带同名头则<strong>不覆盖</strong>，以保留最外层反向代理写入的值。
  * </p>
- * <p>
- * 若外层反向代理已写入同名转发头，则不再覆盖，以尊重代理链。
- * </p>
+ *
+ * @author leiyangjun
  */
 @Component
 public class SwaggerGlobalFilter implements GlobalFilter, Ordered {
@@ -35,6 +34,7 @@ public class SwaggerGlobalFilter implements GlobalFilter, Ordered {
 
 	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 100;
 
+	/** 按序设置转发头后进入过滤器链。 */
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 		ServerHttpRequest request = exchange.getRequest();

@@ -13,7 +13,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 周期性比对 {@link DiscoveryClient#getServices()}，服务名集合变化时发布 {@link RefreshRoutesEvent}。
+ * 每 30 秒比对注册中心服务名集合；与上次快照不一致时发布 {@link RefreshRoutesEvent} 触发网关重新加载路由。
+ *
+ * @author leiyangjun
  */
 @Component
 public class RouteListWatcher {
@@ -32,6 +34,7 @@ public class RouteListWatcher {
 		this.eventPublisher = eventPublisher;
 	}
 
+	/** 定时任务入口：由 Spring 调度器调用。 */
 	@Scheduled(fixedRate = 30000)
 	public void checkServiceChange() {
 		List<String> services = discoveryClient.getServices();

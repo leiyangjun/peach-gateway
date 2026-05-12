@@ -6,8 +6,8 @@ import java.util.List;
 
 import javax.crypto.SecretKey;
 
-import org.peach.gateway.support.message.Message400;
-import org.peach.gateway.support.web.ErrorResult;
+import org.peach.gateway.result.message.Message400;
+import org.peach.gateway.result.web.ErrorResult;
 import org.peach.gateway.util.JSONUtil;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -34,13 +34,17 @@ import io.jsonwebtoken.security.Keys;
 import reactor.core.publisher.Mono;
 
 /**
- * 全局 Bearer JWT 校验：HS256 解析并校验签名；{@code sub} 为 JSON 字符串，反序列化后向下游展开为 peach_* 查询参数。
+ * 全局 Bearer JWT 校验（HS256）：校验签名与结构；将 {@code sub} 作为 JSON 对象解析后，以 {@code peach_*}
+ * 查询参数附加到下游请求（并清除同名旧参数）。
  * <p>
- * HS256 秘钥为网关内置常量（与认证服务签发默认一致），不在配置文件中维护。
+ * HS256 密钥为类内常量字符串的 UTF-8 字节（长度须 ≥ 32），与签发方约定一致，不由配置文件注入。
  * </p>
  * <p>
- * 未授权响应体：仅 {@code code}、{@code msg}；{@code code} 规则见 {@link org.peach.gateway.support.code.GatewayApiResultCodeComposer}（如 {@code GWAY4014002}）。
+ * 未通过校验时返回 401，体为 {@link ErrorResult}（{@code code} 为模块前缀 + 401 + {@link Message400} 末四位，
+ * 见 {@link ErrorResult#unauthorized(MessageCode)}）。
  * </p>
+ *
+ * @author leiyangjun
  */
 @Component
 public class TokenGlobalFilter implements GlobalFilter, Ordered {
@@ -66,26 +70,10 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 	private static final String QUERY_GENDER = "peach_gender";
 
 	/** JWT 不作校验的匿名路径（Ant）；含文档门户、登录全流程（含滑块挑战）、Swagger。 */
-	private static final List<String> ANONYMOUS_PATTERNS = List.of(
-			"/",
-			"/index.html",
-			"/routes",
-			"/v3/api-docs",
-			"/v3/api-docs/**",
-			"/v3/api-docs.yaml",
-			"/v3/api-docs.yml",
-			"/swagger-ui.html",
-			"/swagger-ui/**",
-			"/webjars/**",
-			"/peach-doc-portal/**",
-			"/*/auth/login/**",
-			"/*/auth/login/slider/**",
-			"/*/v3/api-docs/**",
-			"/*/v3/api-docs.yaml",
-			"/*/v3/api-docs.yml",
-			"/*/swagger-ui/**",
-			"/*/swagger-ui.html",
-			"/*/routes/**",
+	private static final List<String> ANONYMOUS_PATTERNS = List.of("/", "/index.html", "/routes", "/v3/api-docs",
+			"/v3/api-docs/**", "/v3/api-docs.yaml", "/v3/api-docs.yml", "/swagger-ui.html", "/swagger-ui/**",
+			"/webjars/**", "/peach-doc-portal/**", "/*/auth/login/**", "/*/auth/login/slider/**", "/*/v3/api-docs/**",
+			"/*/v3/api-docs.yaml", "/*/v3/api-docs.yml", "/*/swagger-ui/**", "/*/swagger-ui.html", "/*/routes/**",
 			"/*/webjars/**");
 
 	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 300;
@@ -97,6 +85,10 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 
 	private volatile SecretKey verificationKey;
 
+	/**
+	 * {@code OPTIONS} 直接放行；匿名路径放行；否则要求 {@code Authorization: Bearer}，解析 JWT 成功后替换请求 URI
+	 * 查询串再进入后续过滤器链。
+	 */
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 		ServerHttpRequest request = exchange.getRequest();
@@ -109,23 +101,20 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		}
 		String auth = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 		if (!StringUtils.hasText(auth) || !auth.regionMatches(true, 0, "Bearer ", 0, 7)) {
-			return unauthorized(exchange, Message400.GATEWAY_AUTH_HEADER_MISSING.msg());
+			return unauthorized(exchange, Message400.GATEWAY_AUTH_HEADER_MISSING);
 		}
 		String token = auth.substring(7).trim();
 		if (!StringUtils.hasText(token)) {
-			return unauthorized(exchange, Message400.GATEWAY_AUTH_BEARER_EMPTY.msg());
+			return unauthorized(exchange, Message400.GATEWAY_AUTH_BEARER_EMPTY);
 		}
 		try {
 			Claims claims = parseAndValidateClaims(token);
 			ServerHttpRequest mutated = appendIdentityQuery(request, claims);
 			return chain.filter(exchange.mutate().request(mutated).build());
-		}
-		catch (JwtException ex) {
-			return unauthorized(exchange, Message400.GATEWAY_AUTH_JWT_INVALID.msg());
-		}
-		catch (IllegalStateException ex) {
-			String m = ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : Message400.GATEWAY_AUTH_JWT_CONFIG.msg();
-			return unauthorized(exchange, m);
+		} catch (JwtException ex) {
+			return unauthorized(exchange, Message400.GATEWAY_AUTH_JWT_INVALID);
+		} catch (IllegalStateException ex) {
+			return unauthorized(exchange, Message400.GATEWAY_AUTH_JWT_CONFIG);
 		}
 	}
 
@@ -140,11 +129,7 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 
 	private Claims parseAndValidateClaims(String compactJwt) {
 		SecretKey key = verificationKey();
-		return Jwts.parser()
-			.verifyWith(key)
-			.build()
-			.parseSignedClaims(compactJwt)
-			.getPayload();
+		return Jwts.parser().verifyWith(key).build().parseSignedClaims(compactJwt).getPayload();
 	}
 
 	private SecretKey verificationKey() {
@@ -172,8 +157,7 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		JsonNode root;
 		try {
 			root = OBJECT_MAPPER.readTree(sub.trim());
-		}
-		catch (Exception ex) {
+		} catch (Exception ex) {
 			throw new JwtException("JWT subject 非合法 JSON");
 		}
 		if (root == null || !root.isObject()) {
@@ -223,11 +207,14 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		}
 	}
 
-	private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {
+	/**
+	 * 写入 401 与 JSON {@link ErrorResult}，立即结束请求（不进入下游）。
+	 */
+	private Mono<Void> unauthorized(ServerWebExchange exchange, Message400 message400) {
 		ServerHttpResponse response = exchange.getResponse();
 		response.setStatusCode(HttpStatus.UNAUTHORIZED);
 		response.getHeaders().setContentType(new MediaType(MediaType.APPLICATION_JSON, StandardCharsets.UTF_8));
-		ErrorResult err = ErrorResult.forHttpStatus(HttpStatus.UNAUTHORIZED, message);
+		ErrorResult err = ErrorResult.unauthorized(message400);
 		byte[] body = JSONUtil.toJsonBytes(err);
 		return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
 	}
