@@ -23,7 +23,7 @@ springdoc:
 spring:
   application:
     name: peach-gateway
-    # 与业务服务 spring.application.module-code 一致，供网关隔离层错误体拼 ApiResult 风格 code（四位模块码）
+    # 四位模块前缀，与业务服务一致，供网关 11 位 code 拼装（见 GatewayApiResultCodeComposer）；网关不做业务末四位区间校验
     module-code: GWAY
   cloud:
     nacos:

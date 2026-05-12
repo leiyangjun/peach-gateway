@@ -1,4 +1,4 @@
-package org.peach.gateway.error;
+package org.peach.gateway.support.code;
 
 import org.springframework.http.HttpStatus;
 
@@ -7,6 +7,10 @@ import org.springframework.http.HttpStatus;
  * <p>
  * 与业务服务 {@code ApiResult}「族」用 200/400/401 等语义段不同：此处中间三位为<strong>实际 HTTP 状态码</strong>（如 404、403），
  * 末四位为网关节点内提示号（如 404 未匹配路由/资源用 {@code 4001}）。
+ * </p>
+ * <p>
+ * 网关无下游业务上下文，<strong>不做</strong>业务微服务常见的末四位「区间码」约束或校验（例如按 4100–4999 等分段判定合法性）；
+ * 末段仅由本类固定映射及 {@link org.peach.gateway.support.message.Message400}、{@link org.peach.gateway.support.message.Message500} 约定生成。
  * </p>
  */
 public final class GatewayApiResultCodeComposer {
@@ -17,12 +21,12 @@ public final class GatewayApiResultCodeComposer {
 	/**
 	 * @param moduleCode 四位服务编码（如 GWAY）
 	 * @param httpStatusValue HTTP 状态数值（100–599）
-	 * @param hintCode 四位提示段（0–9999，内部取模规范化）
+	 * @param msgCode 四位消息码段（0–9999，内部取模规范化，非业务区间校验）
 	 */
-	public static String compose(String moduleCode, int httpStatusValue, int hintCode) {
+	public static String compose(String moduleCode, int httpStatusValue, int msgCode) {
 		int st = Math.clamp(httpStatusValue, 100, 599);
-		int hint = Math.abs(hintCode) % 10000;
-		return moduleCode + String.format("%03d", st) + String.format("%04d", hint);
+		int msgSeg = Math.abs(msgCode) % 10000;
+		return moduleCode + String.format("%03d", st) + String.format("%04d", msgSeg);
 	}
 
 	/**

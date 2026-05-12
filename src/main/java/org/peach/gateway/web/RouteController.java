@@ -3,6 +3,7 @@ package org.peach.gateway.web;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.peach.gateway.support.web.ApiResult;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.route.RouteLocator;
@@ -41,12 +42,12 @@ public class RouteController {
 	/** 当前生效的路由快照 + 注册中心返回的服务 id 列表（便于对照动态路由是否应有 {@code /服务名/**}）。 */
 	@GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "当前网关路由快照与注册中心服务名")
-	public Mono<ResponseEntity<Object>> routes() {
+	public Mono<ResponseEntity<ApiResult<GatewayRoutesSnapshot>>> routes() {
 		return routeLocator.getRoutes().collectList().map(list -> {
 			List<RouteSummary> summaries = list.stream().map(this::toSummary).collect(Collectors.toList());
 			List<String> names = discoveryClient.getServices();
 			GatewayRoutesSnapshot body = new GatewayRoutesSnapshot(System.currentTimeMillis(), names, summaries);
-			return ResponseEntity.ok(body);
+			return ResponseEntity.ok(ApiResult.ok(body));
 		});
 	}
 

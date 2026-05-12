@@ -1,13 +1,13 @@
 package org.peach.gateway.error;
 
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
 
+import org.peach.gateway.support.message.Message400;
+import org.peach.gateway.support.message.Message500;
+import org.peach.gateway.support.web.ErrorResult;
+import org.peach.gateway.util.JSONUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
 import org.springframework.cloud.gateway.support.TimeoutException;
 import org.springframework.core.annotation.Order;
@@ -20,9 +20,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import reactor.core.publisher.Mono;
 
 /**
@@ -32,7 +29,7 @@ import reactor.core.publisher.Mono;
  * 不介入「已匹配动态路由并成功与下游建立转发」时的 HTTP 响应体；该场景由下游原样返回（含下游 4xx/5xx 的 body）。
  * </p>
  * <p>
- * 响应体仅含 {@code code}、{@code msg}：{@code code} 规则见 {@link GatewayApiResultCodeComposer}；404 文案与业务侧「资源不存在」一致。
+ * 响应体仅含 {@code code}、{@code msg}：{@code code} 为 11 位网关码（见 {@link org.peach.gateway.support.code.GatewayApiResultCodeComposer}）；404 文案与业务侧「资源不存在」一致。
  * </p>
  */
 @Component
@@ -40,18 +37,6 @@ import reactor.core.publisher.Mono;
 public class GatewayIsolationErrorWebExceptionHandler implements ErrorWebExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(GatewayIsolationErrorWebExceptionHandler.class);
-
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-	private final String moduleCode;
-
-	public GatewayIsolationErrorWebExceptionHandler(@Value("${spring.application.module-code}") String moduleCode) {
-		String mc = Objects.requireNonNull(moduleCode, "spring.application.module-code").trim();
-		if (mc.length() != 4) {
-			throw new IllegalArgumentException("spring.application.module-code 必须为四位字符串，当前长度=" + mc.length());
-		}
-		this.moduleCode = mc;
-	}
 
 	@Override
 	public Mono<Void> handle(ServerWebExchange exchange, Throwable ex) {
@@ -66,9 +51,9 @@ public class GatewayIsolationErrorWebExceptionHandler implements ErrorWebExcepti
 
 		response.setStatusCode(status);
 		response.getHeaders().setContentType(new MediaType(MediaType.APPLICATION_JSON, StandardCharsets.UTF_8));
-		String apiCode = GatewayApiResultCodeComposer.fullCodeForHttpStatus(moduleCode, status);
-		byte[] body = toJsonBody(apiCode, msg);
-		DataBuffer buffer = response.bufferFactory().wrap(body);
+		ErrorResult body = ErrorResult.forHttpStatus(status, msg);
+		byte[] bytes = JSONUtil.toJsonBytes(body);
+		DataBuffer buffer = response.bufferFactory().wrap(bytes);
 		return response.writeWith(Mono.just(buffer));
 	}
 
@@ -94,24 +79,24 @@ public class GatewayIsolationErrorWebExceptionHandler implements ErrorWebExcepti
 
 	private static String defaultMsg(HttpStatus status, Throwable ex) {
 		if (status == HttpStatus.NOT_FOUND) {
-			return "资源不存在";
+			return Message400.GATEWAY_NOT_FOUND.msg();
 		}
 		if (status == HttpStatus.GATEWAY_TIMEOUT) {
-			return "网关等待下游响应超时";
+			return Message500.GATEWAY_TIMEOUT.msg();
 		}
 		if (status == HttpStatus.BAD_GATEWAY) {
-			return "网关无法连接下游或下游提前断开";
+			return Message500.GATEWAY_BAD_GATEWAY.msg();
 		}
 		if (status == HttpStatus.SERVICE_UNAVAILABLE) {
-			return "网关暂时无法处理请求";
+			return Message500.GATEWAY_SERVICE_UNAVAILABLE.msg();
 		}
 		if (status == HttpStatus.INTERNAL_SERVER_ERROR) {
-			return "系统内部错误";
+			return Message500.GATEWAY_INTERNAL.msg();
 		}
 		if (status.is4xxClientError()) {
-			return ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : "请求无法处理";
+			return ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : Message400.GATEWAY_BAD_REQUEST.msg();
 		}
-		return "系统内部错误";
+		return Message500.GATEWAY_INTERNAL.msg();
 	}
 
 	private static void log(ServerWebExchange exchange, HttpStatus status, String path, String msg, Throwable ex) {
@@ -124,20 +109,6 @@ public class GatewayIsolationErrorWebExceptionHandler implements ErrorWebExcepti
 		}
 		else {
 			log.warn("[网关{}] {} {} msg={}", status.value(), method, path, msg);
-		}
-	}
-
-	/** 仅 {@code code}、{@code msg}，无 {@code data}。 */
-	private byte[] toJsonBody(String apiCode, String msg) {
-		Map<String, Object> map = new LinkedHashMap<>(2);
-		map.put("code", apiCode);
-		map.put("msg", msg);
-		try {
-			return OBJECT_MAPPER.writeValueAsBytes(map);
-		}
-		catch (JsonProcessingException e) {
-			String fallback = GatewayApiResultCodeComposer.compose(moduleCode, 500, 5001);
-			return ("{\"code\":\"" + fallback + "\",\"msg\":\"序列化错误\"}").getBytes(StandardCharsets.UTF_8);
 		}
 	}
 }

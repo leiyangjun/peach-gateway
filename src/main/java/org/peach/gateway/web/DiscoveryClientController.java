@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.peach.gateway.support.web.ApiResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -43,8 +44,8 @@ public class DiscoveryClientController {
 
 	@GetMapping(path = "/peach-doc-portal/services", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "注册中心服务列表（含说明）")
-	public List<SwaggerPortalServiceRow> listServices() {
-		return discoveryClient.getServices()
+	public ApiResult<List<SwaggerPortalServiceRow>> listServices() {
+		List<SwaggerPortalServiceRow> rows = discoveryClient.getServices()
 			.stream()
 			.filter(StringUtils::hasText)
 			.map(raw -> {
@@ -53,6 +54,7 @@ public class DiscoveryClientController {
 			})
 			.sorted(Comparator.comparing(SwaggerPortalServiceRow::serviceId, String.CASE_INSENSITIVE_ORDER))
 			.toList();
+		return ApiResult.ok(rows);
 	}
 
 	private String normId(String id) {

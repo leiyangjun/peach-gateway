@@ -133,6 +133,11 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
+					<!-- 单 JVM 跑完本模块用例，避免每类一 fork 重复拉起 Spring 上下文 -->
+					<forkCount>1</forkCount>
+					<reuseForks>true</reuseForks>
+					<!-- 子进程堆上限：不设时 JVM 在大内存机器上可能默认数 GB，易导致整机卡顿 -->
+					<argLine>-Xmx768m -XX:MaxMetaspaceSize=384m</argLine>
 					<systemPropertyVariables>
 						<spring.profiles.active>test</spring.profiles.active>
 					</systemPropertyVariables>

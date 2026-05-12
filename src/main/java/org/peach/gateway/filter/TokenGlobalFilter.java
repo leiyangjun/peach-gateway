@@ -2,15 +2,13 @@ package org.peach.gateway.filter;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 import javax.crypto.SecretKey;
 
-import org.peach.gateway.error.GatewayApiResultCodeComposer;
-import org.springframework.beans.factory.annotation.Value;
+import org.peach.gateway.support.message.Message400;
+import org.peach.gateway.support.web.ErrorResult;
+import org.peach.gateway.util.JSONUtil;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -26,7 +24,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -42,7 +39,7 @@ import reactor.core.publisher.Mono;
  * HS256 秘钥为网关内置常量（与认证服务签发默认一致），不在配置文件中维护。
  * </p>
  * <p>
- * 未授权响应体：仅 {@code code}、{@code msg}；{@code code} 规则见 {@link org.peach.gateway.error.GatewayApiResultCodeComposer}（如 {@code GWAY4014002}）。
+ * 未授权响应体：仅 {@code code}、{@code msg}；{@code code} 规则见 {@link org.peach.gateway.support.code.GatewayApiResultCodeComposer}（如 {@code GWAY4014002}）。
  * </p>
  */
 @Component
@@ -98,17 +95,7 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 
 	private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
-	private final String moduleCode;
-
 	private volatile SecretKey verificationKey;
-
-	public TokenGlobalFilter(@Value("${spring.application.module-code}") String moduleCode) {
-		String mc = Objects.requireNonNull(moduleCode, "spring.application.module-code").trim();
-		if (mc.length() != 4) {
-			throw new IllegalArgumentException("spring.application.module-code 必须为四位字符串，当前长度=" + mc.length());
-		}
-		this.moduleCode = mc;
-	}
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -122,11 +109,11 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		}
 		String auth = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 		if (!StringUtils.hasText(auth) || !auth.regionMatches(true, 0, "Bearer ", 0, 7)) {
-			return unauthorized(exchange, "缺少或格式错误的 Authorization Bearer 令牌");
+			return unauthorized(exchange, Message400.GATEWAY_AUTH_HEADER_MISSING.msg());
 		}
 		String token = auth.substring(7).trim();
 		if (!StringUtils.hasText(token)) {
-			return unauthorized(exchange, "Bearer 令牌为空");
+			return unauthorized(exchange, Message400.GATEWAY_AUTH_BEARER_EMPTY.msg());
 		}
 		try {
 			Claims claims = parseAndValidateClaims(token);
@@ -134,10 +121,11 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 			return chain.filter(exchange.mutate().request(mutated).build());
 		}
 		catch (JwtException ex) {
-			return unauthorized(exchange, "令牌无效或已过期");
+			return unauthorized(exchange, Message400.GATEWAY_AUTH_JWT_INVALID.msg());
 		}
 		catch (IllegalStateException ex) {
-			return unauthorized(exchange, ex.getMessage() != null ? ex.getMessage() : "JWT 配置错误");
+			String m = ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : Message400.GATEWAY_AUTH_JWT_CONFIG.msg();
+			return unauthorized(exchange, m);
 		}
 	}
 
@@ -239,17 +227,8 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		ServerHttpResponse response = exchange.getResponse();
 		response.setStatusCode(HttpStatus.UNAUTHORIZED);
 		response.getHeaders().setContentType(new MediaType(MediaType.APPLICATION_JSON, StandardCharsets.UTF_8));
-		Map<String, Object> map = new LinkedHashMap<>(2);
-		map.put("code", GatewayApiResultCodeComposer.fullCodeForHttpStatus(moduleCode, HttpStatus.UNAUTHORIZED));
-		map.put("msg", message);
-		byte[] body;
-		try {
-			body = OBJECT_MAPPER.writeValueAsBytes(map);
-		}
-		catch (JsonProcessingException e) {
-			String fallback = GatewayApiResultCodeComposer.compose(moduleCode, 401, 4002);
-			body = ("{\"code\":\"" + fallback + "\",\"msg\":\"序列化错误\"}").getBytes(StandardCharsets.UTF_8);
-		}
+		ErrorResult err = ErrorResult.forHttpStatus(HttpStatus.UNAUTHORIZED, message);
+		byte[] body = JSONUtil.toJsonBytes(err);
 		return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
 	}
 

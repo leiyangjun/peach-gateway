@@ -66,11 +66,11 @@ class GatewayAppTests {
 			.expectHeader()
 			.contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
 			.expectBody()
-			.jsonPath("$.generatedAtEpochMs")
+			.jsonPath("$.data.generatedAtEpochMs")
 			.exists()
-			.jsonPath("$.discoveryServiceNames")
+			.jsonPath("$.data.discoveryServiceNames")
 			.exists()
-			.jsonPath("$.routes")
+			.jsonPath("$.data.routes")
 			.exists();
 	}
 
