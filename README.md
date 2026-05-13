@@ -47,7 +47,13 @@ mvn -f peach-gateway/pom.xml spring-boot:run
 mvn -f peach-gateway/pom.xml clean verify -DskipTests
 ```
 
-单测默认激活 **`spring.profiles.active=test`**（Surefire 配置）。
+执行单测（静默）：
+
+```bash
+mvn -q test
+```
+
+单测默认激活 **`spring.profiles.active=test`**（Surefire 配置）。单测使用 **`src/test/resources/application-test.yml`**（如关闭 Nacos 发现、关闭 springdoc UI），与主配置叠加；需本地已安装父 BOM **`peach-dependencies`**（版本见 `pom.xml`）。
 
 ### 环境变量（摘要）
 
@@ -69,6 +75,35 @@ mvn -f peach-gateway/pom.xml clean verify -DskipTests
 - 网关使用 **WebFlux**，不要引入阻塞式 Servlet 栈；与业务服务（MVC）技术栈分离。
 - **业务码前缀**：`spring.application.module-code: GWAY`（四位），与全局过滤器错误码拼装规则一致。
 - 新增匿名路径时同步维护 **`TokenGlobalFilter.ANONYMOUS_PATTERNS`**。
+
+---
+
+## 统一错误模型（网关对外 JSON）
+
+网关侧「错误 / 校验失败」响应体使用 **`ErrorResult`**：仅包含 **`code`**（字符串）、**`msg`**（字符串），**没有** `data` 字段，也**不是** `ApiResult` 那种 HTTP 200 包一层业务码的形态。
+
+### `code` 拼装规则（11 位）
+
+与代码注释中的约定一致：**四位模块前缀** + **三位 HTTP 状态数字** + **四位末段语义码**（字符串拼接，例如模块 `GWAY`、HTTP `404`、末段 `4013` → **`GWAY4044013`**）。
+
+- 模块前缀来自配置 **`spring.application.module-code`**（必须为四位）；启动时由 **`GatewayModuleCodeConfiguration`** 校验并写入 **`ModuleCodeCache`**，供过滤器、全局异常处理等读取。
+- **`Message400`**：用于网关过滤器等场景的「客户端类」末段，取值为 **4001–4008**（与 HTTP 401/403/404 等组合使用，由具体工厂方法选择 HTTP 段）。例如鉴权头缺失：`401` + `4005` → `GWAY4014005`。
+- **`MessageError`**：用于 **`GlobalErrorWebExceptionHandler`**（隔离层）等按 HTTP 状态映射的末段：
+  - **4xx 系列末段从 4009 起**（如 `NOT_FOUND` → **4013**），**不包含 HTTP 200**；该枚举仅表达错误语义，成功响应不走 `MessageError`。
+  - **5xx 系列末段从 5001 起**（如 `INTERNAL_SERVER_ERROR` → **5001**）。
+- 未知 HTTP 状态在 **`MessageError.formStatus(int)`** 中会回落为 **`INTERNAL_SERVER_ERROR`**（与当前实现一致）。
+
+### 隔离层（`GlobalErrorWebExceptionHandler`）
+
+- **职责**：处理**未命中下游路由**、**无网关自身 Controller/静态资源命中**时的框架异常，以及网关节点自身超时、连接类等问题（见类注释）。
+- **不职责**：**不**改写「已匹配动态路由并成功转发到下游」时的响应体；该场景下游原样返回（含下游 4xx/5xx 的 body）。
+- **响应**：HTTP 状态与异常一致；`Content-Type: application/json;charset=UTF-8`；JSON 体为 **`ErrorResult`**（`code` / `msg`）。
+
+### 过滤器错误（`TokenGlobalFilter`）
+
+对非匿名路径校验 JWT；失败时 HTTP **401**，体为 **`ErrorResult.unauthorized(Message400.*)`**，末段为 **4001–4008** 中对应枚举值（见 `Message400` 源码）。
+
+**生效范围（与当前 WebFlux + Gateway 装配一致）**：仅当请求**匹配到**基于服务发现的动态路由（`DynamicDiscoveryRouteDefinitionLocator` 生成的 `Path=/{serviceId}/**`）并进入 Spring Cloud Gateway 全局过滤器链时，`TokenGlobalFilter` 才会执行。若当前无可用动态路由或路径未命中任一 Gateway 路由，请求会落到本机 `@RestController` 或静态资源处理；此时**不会**经过 `TokenGlobalFilter`，也就不会出现 JWT 相关的 401（例如单测里 `WebTestClient.bindToApplicationContext` 访问未映射路径时，常见为静态资源 404 再经 `GlobalErrorWebExceptionHandler` 转为隔离层 JSON）。
 
 ---
 

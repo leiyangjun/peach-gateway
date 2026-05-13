@@ -74,7 +74,7 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 			"/v3/api-docs/**", "/v3/api-docs.yaml", "/v3/api-docs.yml", "/swagger-ui.html", "/swagger-ui/**",
 			"/webjars/**", "/peach-doc-portal/**", "/*/auth/login/**", "/*/auth/login/slider/**", "/*/v3/api-docs/**",
 			"/*/v3/api-docs.yaml", "/*/v3/api-docs.yml", "/*/swagger-ui/**", "/*/swagger-ui.html", "/*/routes/**",
-			"/*/webjars/**");
+			"/*/webjars/**","/*/*/swagger-ui/index.html");
 
 	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 300;
 

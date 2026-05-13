@@ -75,7 +75,8 @@ class GatewayAppTests {
 	}
 
 	/**
-	 * 未命中动态路由且无网关自身 Handler 时，由 {@code GatewayIsolationErrorWebExceptionHandler} 返回 code/msg（中间三位为 HTTP 404）。
+	 * 未命中动态路由且无网关自身 Handler 时，由 {@link org.peach.gateway.error.GlobalErrorWebExceptionHandler}
+	 * 写入 {@link org.peach.gateway.result.web.ErrorResult}：HTTP 404，体为 {@code code}/{@code msg}，无 {@code data}。
 	 */
 	@Test
 	void noRouteReturnsIsolationJsonBody() {
@@ -89,7 +90,7 @@ class GatewayAppTests {
 			.contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
 			.expectBody()
 			.jsonPath("$.code")
-			.isEqualTo("GWAY4044001")
+			.isEqualTo("GWAY4044013")
 			.jsonPath("$.msg")
 			.isEqualTo("资源不存在")
 			.jsonPath("$.data")
