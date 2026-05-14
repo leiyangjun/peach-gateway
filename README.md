@@ -74,7 +74,7 @@ mvn -q test
 
 - 网关使用 **WebFlux**，不要引入阻塞式 Servlet 栈；与业务服务（MVC）技术栈分离。
 - **业务码前缀**：`spring.application.module-code: GWAY`（四位），与全局过滤器错误码拼装规则一致。
-- 新增匿名路径时同步维护 **`TokenGlobalFilter.ANONYMOUS_PATTERNS`**。
+- 新增匿名路径时同步维护 **`TokenGlobalFilter.ANONYMOUS_PATTERNS`**（含微服务 **`peach.api.context`** 为 **`/admin`** 时的 **`/{serviceId}/admin/...`** 与 **`/admin/...`** 镜像项，与无 context 的 **`/{serviceId}/...`** 并列）。
 
 ---
 

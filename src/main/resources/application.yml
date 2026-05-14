@@ -6,6 +6,7 @@ server:
 peach:
   gateway:
     # 路由排查 JSON：GET http://网关:8090/routes（匿名，见 TokenGlobalFilter）
+    # JWT 匿名路径清单在代码 TokenGlobalFilter.ANONYMOUS_PATTERNS；下游 context=/admin 时已包含 /{serviceId}/admin/... 与 /admin/... 对应项
     discovery:
       # RouteListWatcher：比对注册中心服务列表变更并 RefreshRoutes（毫秒）
       route-watch-interval-ms: ${PEACH_GATEWAY_ROUTE_WATCH_INTERVAL_MS:10000}

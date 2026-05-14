@@ -69,12 +69,26 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 
 	private static final String QUERY_GENDER = "peach_gender";
 
-	/** JWT 不作校验的匿名路径（Ant）；含文档门户、登录全流程（含滑块挑战）、Swagger。 */
+	/**
+	 * JWT 不作校验的匿名路径（Ant）；含文档门户、登录全流程（含滑块挑战）、Swagger。
+	 * <p>
+	 * 下游若配置 {@code peach.api.context}（如 {@code /admin}），经网关的 URL 形如
+	 * {@code /{serviceId}/admin/...}，需与无 context 的 {@code /{serviceId}/...} 并列维护；另含无前缀的
+	 * {@code /admin/...} 以兼容少数部署形态。
+	 * </p>
+	 */
 	private static final List<String> ANONYMOUS_PATTERNS = List.of("/", "/index.html", "/routes", "/v3/api-docs",
 			"/v3/api-docs/**", "/v3/api-docs.yaml", "/v3/api-docs.yml", "/swagger-ui.html", "/swagger-ui/**",
 			"/webjars/**", "/peach-doc-portal/**", "/*/auth/login/**", "/*/auth/login/slider/**", "/*/v3/api-docs/**",
 			"/*/v3/api-docs.yaml", "/*/v3/api-docs.yml", "/*/swagger-ui/**", "/*/swagger-ui.html", "/*/routes/**",
-			"/*/webjars/**","/*/*/swagger-ui/index.html");
+			"/*/webjars/**", "/*/*/swagger-ui/index.html",
+			// peach.api.context=/admin：根路径与 /{serviceId}/admin/... 与上表对应项
+			"/admin/auth/login/**", "/admin/auth/login/slider/**", "/admin/v3/api-docs/**", "/admin/v3/api-docs.yaml",
+			"/admin/v3/api-docs.yml", "/admin/swagger-ui.html", "/admin/swagger-ui/**", "/admin/routes/**",
+			"/admin/webjars/**", "/admin/swagger-ui/index.html", "/*/admin/auth/login/**",
+			"/*/admin/auth/login/slider/**", "/*/admin/v3/api-docs/**", "/*/admin/v3/api-docs.yaml",
+			"/*/admin/v3/api-docs.yml", "/*/admin/swagger-ui/**", "/*/admin/swagger-ui.html", "/*/admin/routes/**",
+			"/*/admin/webjars/**", "/*/admin/swagger-ui/index.html");
 
 	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 300;
 
