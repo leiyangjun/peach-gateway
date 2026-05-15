@@ -2,7 +2,9 @@ package org.peach.gateway.filter;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import javax.crypto.SecretKey;
 
@@ -23,6 +25,7 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -68,6 +71,10 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 	private static final String QUERY_AVATAR = "peach_avatar";
 
 	private static final String QUERY_GENDER = "peach_gender";
+
+	/** 附加到下游前需从原查询串剔除的旧身份参数名（与 {@link #clearPeachParams} 一致）。 */
+	private static final Set<String> PEACH_QUERY_KEYS_TO_STRIP = Set.of(QUERY_USER_ID, QUERY_USER_TYPE, QUERY_USERNAME,
+			QUERY_NICKNAME, QUERY_REAL_NAME, QUERY_MOBILE, QUERY_EMAIL, QUERY_AVATAR, QUERY_GENDER);
 
 	/**
 	 * JWT 不作校验的匿名路径（Ant）；含文档门户、登录全流程（含滑块挑战）、Swagger。
@@ -179,46 +186,86 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		}
 
 		URI uri = request.getURI();
-		var b = UriComponentsBuilder.fromUri(uri);
-		clearPeachParams(b);
-		putJsonField(b, root, "id", QUERY_USER_ID);
-		putJsonField(b, root, "username", QUERY_USERNAME);
-		putJsonField(b, root, "nickname", QUERY_NICKNAME);
-		putJsonField(b, root, "realName", QUERY_REAL_NAME);
-		putJsonField(b, root, "mobile", QUERY_MOBILE);
-		putJsonField(b, root, "email", QUERY_EMAIL);
-		putJsonField(b, root, "avatar", QUERY_AVATAR);
-		putJsonField(b, root, "gender", QUERY_GENDER);
-
-		// build(true) 会把查询参数当「已编码」并严格校验；nickname 等含中文时必须先 UTF-8 百分号编码
-		URI forwarded = b.build().encode(StandardCharsets.UTF_8).toUri();
+		/*
+		 * 禁止对整段查询串再跑 UriComponentsBuilder.replaceQueryParam + build().encode()：
+		 * Spring 会对「已含合法 %XX」的业务参数值再次编码 %→%25，下游只解码一次后仍为字面量 %e6...，
+		 * 中文 searchValue/keyword 等模糊查询与 Swagger 直填中文不一致（见 spring-framework#32234 讨论）。
+		 * 做法：保留原 rawQuery 中除 peach_* 外的片段，仅对新增 peach_* 用 UriUtils 做键值编码后拼接，
+		 * 再以 build(true) 写出，避免破坏浏览器/axios 已编码的 UTF-8 查询串。
+		 */
+		String mergedRawQuery = mergePeachIdentityRawQuery(uri.getRawQuery(), root);
+		URI forwarded = rebuildUriPreservingRawPath(uri, mergedRawQuery);
 		return request.mutate().uri(forwarded).build();
 	}
 
-	private static void clearPeachParams(UriComponentsBuilder b) {
-		b.replaceQueryParam(QUERY_USER_ID);
-		b.replaceQueryParam(QUERY_USER_TYPE);
-		b.replaceQueryParam(QUERY_USERNAME);
-		b.replaceQueryParam(QUERY_NICKNAME);
-		b.replaceQueryParam(QUERY_REAL_NAME);
-		b.replaceQueryParam(QUERY_MOBILE);
-		b.replaceQueryParam(QUERY_EMAIL);
-		b.replaceQueryParam(QUERY_AVATAR);
-		b.replaceQueryParam(QUERY_GENDER);
+	/**
+	 * 去掉旧 peach_* 段，追加 JWT 解析出的身份参数；仅新参数经 UTF-8 百分号编码，其余段保持客户端原样。
+	 */
+	private static String mergePeachIdentityRawQuery(String rawQuery, JsonNode root) {
+		List<String> segments = new ArrayList<>();
+		if (StringUtils.hasText(rawQuery)) {
+			for (String segment : rawQuery.split("&")) {
+				if (!StringUtils.hasText(segment)) {
+					continue;
+				}
+				int eq = segment.indexOf('=');
+				String name = eq >= 0 ? segment.substring(0, eq) : segment;
+				if (PEACH_QUERY_KEYS_TO_STRIP.contains(name)) {
+					continue;
+				}
+				segments.add(segment);
+			}
+		}
+		appendEncodedPeachParam(segments, root, "id", QUERY_USER_ID);
+		appendEncodedPeachParam(segments, root, "username", QUERY_USERNAME);
+		appendEncodedPeachParam(segments, root, "nickname", QUERY_NICKNAME);
+		appendEncodedPeachParam(segments, root, "realName", QUERY_REAL_NAME);
+		appendEncodedPeachParam(segments, root, "mobile", QUERY_MOBILE);
+		appendEncodedPeachParam(segments, root, "email", QUERY_EMAIL);
+		appendEncodedPeachParam(segments, root, "avatar", QUERY_AVATAR);
+		appendEncodedPeachParam(segments, root, "gender", QUERY_GENDER);
+		return String.join("&", segments);
 	}
 
-	/**
-	 * 将 JSON 对象字段写入查询参数：数值与字符串均转为文本（与 servlet 侧解析一致）。
-	 */
-	private static void putJsonField(UriComponentsBuilder b, JsonNode root, String jsonProperty, String queryParam) {
+	private static void appendEncodedPeachParam(List<String> segments, JsonNode root, String jsonProperty,
+			String queryParam) {
 		if (!root.has(jsonProperty) || root.get(jsonProperty).isNull()) {
 			return;
 		}
 		JsonNode n = root.get(jsonProperty);
 		String text = n.isNumber() ? n.numberValue().toString() : n.asText("");
-		if (StringUtils.hasText(text)) {
-			b.replaceQueryParam(queryParam, text.trim());
+		if (!StringUtils.hasText(text)) {
+			return;
 		}
+		String encName = UriUtils.encodeQueryParam(queryParam, StandardCharsets.UTF_8);
+		String encVal = UriUtils.encodeQueryParam(text.trim(), StandardCharsets.UTF_8);
+		segments.add(encName + "=" + encVal);
+	}
+
+	/** 仅用 raw 路径/查询重建 URI，避免 fromUri 解析查询后再编码导致双重百分号编码。 */
+	private static URI rebuildUriPreservingRawPath(URI uri, String mergedRawQuery) {
+		String rawPath = uri.getRawPath();
+		if (!StringUtils.hasText(rawPath)) {
+			rawPath = uri.getPath();
+		}
+		if (rawPath == null) {
+			rawPath = "";
+		}
+		UriComponentsBuilder b = UriComponentsBuilder.newInstance().scheme(uri.getScheme()).host(uri.getHost());
+		if (uri.getPort() != -1) {
+			b.port(uri.getPort());
+		}
+		if (StringUtils.hasText(uri.getRawUserInfo())) {
+			b.userInfo(uri.getRawUserInfo());
+		}
+		b.path(rawPath);
+		if (StringUtils.hasText(mergedRawQuery)) {
+			b.replaceQuery(mergedRawQuery);
+		}
+		if (StringUtils.hasText(uri.getRawFragment())) {
+			b.fragment(uri.getRawFragment());
+		}
+		return b.build(true).toUri();
 	}
 
 	/**
