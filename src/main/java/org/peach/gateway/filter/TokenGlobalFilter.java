@@ -27,8 +27,9 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -52,7 +53,7 @@ import reactor.core.publisher.Mono;
 @Component
 public class TokenGlobalFilter implements GlobalFilter, Ordered {
 
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
 	private static final String QUERY_USER_ID = "peach_user_id";
 
@@ -191,7 +192,7 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		 * Spring 会对「已含合法 %XX」的业务参数值再次编码 %→%25，下游只解码一次后仍为字面量 %e6...，
 		 * 中文 searchValue/keyword 等模糊查询与 Swagger 直填中文不一致（见 spring-framework#32234 讨论）。
 		 * 做法：保留原 rawQuery 中除 peach_* 外的片段，仅对新增 peach_* 用 UriUtils 做键值编码后拼接，
-		 * 再以 build(true) 写出，避免破坏浏览器/axios 已编码的 UTF-8 查询串。
+		 * 再以 build(true) 写出，保留客户端已编码的 UTF-8 查询串。
 		 */
 		String mergedRawQuery = mergePeachIdentityRawQuery(uri.getRawQuery(), root);
 		URI forwarded = rebuildUriPreservingRawPath(uri, mergedRawQuery);
@@ -242,7 +243,7 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		segments.add(encName + "=" + encVal);
 	}
 
-	/** 仅用 raw 路径/查询重建 URI，避免 fromUri 解析查询后再编码导致双重百分号编码。 */
+	/** 用 raw 路径/查询重建 URI，不对查询串二次百分号编码。 */
 	private static URI rebuildUriPreservingRawPath(URI uri, String mergedRawQuery) {
 		String rawPath = uri.getRawPath();
 		if (!StringUtils.hasText(rawPath)) {

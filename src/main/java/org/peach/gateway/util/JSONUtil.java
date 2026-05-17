@@ -2,17 +2,16 @@ package org.peach.gateway.util;
 
 import java.nio.charset.StandardCharsets;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 网关 JSON 序列化工具，供过滤器、隔离层异常处理与统一返回体使用。
- *
- * @author leiyangjun
+ * 网关 JSON 序列化工具，供过滤器、隔离层异常处理与统一返回体使用（Jackson 3）。
  */
 public final class JSONUtil {
 
-	private static final ObjectMapper MAPPER = new ObjectMapper();
+	private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
 	private JSONUtil() {
 	}
@@ -24,15 +23,8 @@ public final class JSONUtil {
 		}
 		try {
 			return MAPPER.writeValueAsBytes(value);
-		} catch (JsonProcessingException e) {
-//			String mc = ModuleCodeCache.get();
-//			if (mc == null || mc.isBlank()) {
-//				mc = "UNKN";
-//			}
-//			String code = GatewayApiResultCodeComposer.compose(mc, 500, Message500.GATEWAY_JSON_SERIALIZE_FAILED.code());
-//			String msg = Message500.GATEWAY_JSON_SERIALIZE_FAILED.msg();
-//			String json = String.format("{\"code\":\"%s\",\"msg\":\"%s\"}", code, msg);
-//			return json.getBytes(StandardCharsets.UTF_8);
+		}
+		catch (JacksonException e) {
 			return null;
 		}
 	}

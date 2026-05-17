@@ -2,8 +2,6 @@ package org.peach.gateway.config;
 
 /**
  * 缓存网关 {@code spring.application.module-code}，供过滤器与异常处理等无 Spring 注入处读取。
- *
- * @author leiyangjun
  */
 public final class ModuleCodeCache {
 

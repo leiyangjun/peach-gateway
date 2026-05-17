@@ -19,7 +19,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableConfigurationProperties({ SwaggerProperties.class })
 public class GatewayApp {
 
-	/** 启动 Spring Boot / Cloud Gateway 应用上下文。 */
+	/** 启动 Spring Boot / Cloud Gateway 应用上下文。
+ *
+ * @author leiyangjun
+ */
 	public static void main(String[] args) {
 		SpringApplication.run(GatewayApp.class, args);
 	}

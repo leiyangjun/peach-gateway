@@ -37,13 +37,13 @@ public class DynamicDiscoveryRouteDefinitionLocator implements RouteDefinitionLo
 		this.discoveryClient = discoveryClient;
 	}
 
-	/** 在弹性线程上拉取服务名并映射为路由定义（避免阻塞 Reactor 事件线程）。 */
+	/** 在弹性线程上拉取服务名并映射为路由定义。 */
 	@Override
 	public Flux<RouteDefinition> getRouteDefinitions() {
 		return serviceIds().map(this::normalizeServiceId).filter(StringUtils::hasText).map(this::buildRoute);
 	}
 
-	/** 阻塞式发现客户端在响应式线程中调用，避免长时间占用事件循环 */
+	/** 阻塞式 DiscoveryClient 调用，调度至 boundedElastic 线程池。 */
 	private Flux<String> serviceIds() {
 		return Mono.fromCallable(() -> discoveryClient.getServices())
 				.subscribeOn(Schedulers.boundedElastic())
