@@ -30,7 +30,13 @@ class TokenGlobalFilterAnonymousPathTest {
 	@Test
 	void adminContextRootPrefixedPathsAnonymous() {
 		assertAnonymous("/admin/auth/login");
+		assertAnonymous("/admin/auth/refresh");
 		assertAnonymous("/admin/v3/api-docs");
+	}
+
+	@Test
+	void adminContextRefreshPathAnonymous() {
+		assertAnonymous("/peach-auth-service/admin/auth/refresh");
 	}
 
 	@Test

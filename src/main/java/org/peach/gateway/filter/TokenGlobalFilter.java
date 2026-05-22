@@ -91,10 +91,11 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 			"/*/v3/api-docs.yaml", "/*/v3/api-docs.yml", "/*/swagger-ui/**", "/*/swagger-ui.html", "/*/routes/**",
 			"/*/webjars/**", "/*/*/swagger-ui/index.html",
 			// peach.api.context=/admin：根路径与 /{serviceId}/admin/... 与上表对应项
-			"/admin/auth/login/**", "/admin/auth/login/slider/**", "/admin/v3/api-docs/**", "/admin/v3/api-docs.yaml",
+			"/admin/auth/login/**", "/admin/auth/login/slider/**", "/admin/auth/refresh", "/admin/v3/api-docs/**",
+			"/admin/v3/api-docs.yaml",
 			"/admin/v3/api-docs.yml", "/admin/swagger-ui.html", "/admin/swagger-ui/**", "/admin/routes/**",
 			"/admin/webjars/**", "/admin/swagger-ui/index.html", "/*/admin/auth/login/**",
-			"/*/admin/auth/login/slider/**", "/*/admin/v3/api-docs/**", "/*/admin/v3/api-docs.yaml",
+			"/*/admin/auth/login/slider/**", "/*/admin/auth/refresh", "/*/admin/v3/api-docs/**", "/*/admin/v3/api-docs.yaml",
 			"/*/admin/v3/api-docs.yml", "/*/admin/swagger-ui/**", "/*/admin/swagger-ui.html", "/*/admin/routes/**",
 			"/*/admin/webjars/**", "/*/admin/swagger-ui/index.html");
 
