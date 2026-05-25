@@ -1,5 +1,6 @@
 package org.peach.gateway;
 
+import org.peach.gateway.config.GatewayCorsProperties;
 import org.peach.gateway.config.SwaggerProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -16,7 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 	// 未引入 peach-common-start 时使用原注解；与业务侧 @PeachCloud 均为启用服务发现
 @EnableDiscoveryClient
 @EnableScheduling
-@EnableConfigurationProperties({ SwaggerProperties.class })
+@EnableConfigurationProperties({ SwaggerProperties.class, GatewayCorsProperties.class })
 public class GatewayApp {
 
 	/** 启动 Spring Boot / Cloud Gateway 应用上下文。

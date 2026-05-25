@@ -10,6 +10,13 @@ peach:
     discovery:
       # RouteListWatcher：比对注册中心服务列表变更并 RefreshRoutes（毫秒）
       route-watch-interval-ms: ${PEACH_GATEWAY_ROUTE_WATCH_INTERVAL_MS:10000}
+    # 浏览器跨域（Vite 直连 http://127.0.0.1:8090）；生产在 profile / Nacos 覆盖 allowed-origin-patterns
+    cors:
+      allowed-origin-patterns:
+        - http://localhost:5173
+        - http://127.0.0.1:5173
+      allow-credentials: true
+      max-age: 3600
 
 # 网关本机 Swagger（WebFlux + springdoc）：非聚合，仅扫描网关自身 Controller
 # UI：http://网关:8090/swagger-ui.html ；OpenAPI：http://网关:8090/v3/api-docs
@@ -38,29 +45,10 @@ spring:
         port: ${NACOS_REGISTER_PORT:${server.port}}
         fail-fast: false
     gateway:
-      # 浏览器跨域（Swagger UI、其它端口前端直连网关）统一在网关层放行，下游微服务无需重复配置 CORS
-      globalcors:
-        add-to-simple-url-handler-mapping: true
-        cors-configurations:
-          '[/**]':
-            # 开发/内网场景用模式匹配；生产建议改为具体域名列表或走环境变量
-            allowedOriginPatterns: "*"
-            allowedMethods:
-              - GET
-              - HEAD
-              - POST
-              - PUT
-              - PATCH
-              - DELETE
-              - OPTIONS
-            allowedHeaders: "*"
-            exposedHeaders:
-              - Authorization
-              - Content-Type
-            allowCredentials: false
-            maxAge: 3600
       server:
         webflux:
+          # 跨域由 GatewayCorsWebFilterConfiguration（CorsWebFilter）+ peach.gateway.cors 统一处理；
+          # 若改回仅 yml 配置，须使用本节点 globalcors（勿用已废弃的 spring.cloud.gateway.globalcors）
           discovery:
             locator:
               # 关闭自动 RouteDefinitionLocator，改用手工 DiscoveryClient 动态路由（见 route.discovery 包）

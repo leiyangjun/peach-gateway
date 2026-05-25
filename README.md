@@ -11,7 +11,7 @@ Peach API 网关（**Spring Cloud Gateway** + **Nacos 服务发现**），依赖
 本工程为 **独立可执行 Spring Boot 应用**（WebFlux 栈），**不依赖** `peach-common-start`。负责：
 
 - 基于 **Nacos Discovery** 的手工/动态路由（`discovery.locator.enabled: false`，见 `route.discovery` 包）。
-- **全局 JWT 校验**（`TokenGlobalFilter`）：解析 **HS256** Bearer Token，将 JWT `sub`（JSON）展开为下游查询参数 `peach_user_id`、`peach_username` 等，供 `peach-common-start` 的 `LoginUserUtil` 使用。
+- **全局 JWT 校验**（`TokenGlobalFilter`）：解析 **HS256** Bearer Token，将 JWT `sub`（JSON）展开为下游查询参数 `peach_user_id`、`peach_username` 等，供 `peach-common-start` 的 `UserContext` 使用。
 - **CORS**、**Swagger 文档门户**（`/peach-doc-portal/**`、`/index.html`）、网关本机 **springdoc**（`/swagger-ui.html`，仅扫描网关自身 Controller）。
 - 路由调试：**`GET /routes`**（匿名，见过滤器白名单）。
 
