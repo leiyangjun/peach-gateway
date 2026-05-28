@@ -8,6 +8,7 @@ import java.util.Set;
 
 import javax.crypto.SecretKey;
 
+import org.peach.gateway.jwt.anonymous.JwtAnonymousRuleCache;
 import org.peach.gateway.result.message.Message400;
 import org.peach.gateway.result.web.ErrorResult;
 import org.peach.gateway.util.JSONUtil;
@@ -21,7 +22,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
-import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -50,7 +50,7 @@ import reactor.core.publisher.Mono;
  *
  * @author leiyangjun
  */
-@Component
+//@Component
 public class TokenGlobalFilter implements GlobalFilter, Ordered {
 
 	private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
@@ -77,36 +77,18 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 	private static final Set<String> PEACH_QUERY_KEYS_TO_STRIP = Set.of(QUERY_USER_ID, QUERY_USER_TYPE, QUERY_USERNAME,
 			QUERY_NICKNAME, QUERY_REAL_NAME, QUERY_MOBILE, QUERY_EMAIL, QUERY_AVATAR, QUERY_GENDER);
 
-	/**
-	 * JWT 不作校验的匿名路径（Ant）；含文档门户、登录全流程（含滑块挑战）、Swagger。
-	 * <p>
-	 * 下游若配置 {@code peach.api.context}（如 {@code /admin}），经网关的 URL 形如
-	 * {@code /{serviceId}/admin/...}，需与无 context 的 {@code /{serviceId}/...} 并列维护；另含无前缀的
-	 * {@code /admin/...} 以兼容少数部署形态。
-	 * </p>
-	 */
-	private static final List<String> ANONYMOUS_PATTERNS = List.of("/", "/index.html", "/routes", "/v3/api-docs",
-			"/v3/api-docs/**", "/v3/api-docs.yaml", "/v3/api-docs.yml", "/swagger-ui.html", "/swagger-ui/**",
-			"/webjars/**", "/peach-doc-portal/**", "/*/auth/login/**", "/*/auth/login/slider/**", "/*/v3/api-docs/**",
-			"/*/v3/api-docs.yaml", "/*/v3/api-docs.yml", "/*/swagger-ui/**", "/*/swagger-ui.html", "/*/routes/**",
-			"/*/webjars/**", "/*/*/swagger-ui/index.html",
-			// peach.api.context=/admin：根路径与 /{serviceId}/admin/... 与上表对应项
-			"/admin/auth/login/**", "/admin/auth/login/slider/**", "/admin/auth/refresh", "/admin/v3/api-docs/**",
-			"/admin/v3/api-docs.yaml",
-			"/admin/v3/api-docs.yml", "/admin/swagger-ui.html", "/admin/swagger-ui/**", "/admin/routes/**",
-			"/admin/webjars/**", "/admin/swagger-ui/index.html", "/*/admin/auth/login/**",
-			"/*/admin/auth/login/slider/**", "/*/admin/auth/refresh", "/*/admin/v3/api-docs/**", "/*/admin/v3/api-docs.yaml",
-			"/*/admin/v3/api-docs.yml", "/*/admin/swagger-ui/**", "/*/admin/swagger-ui.html", "/*/admin/routes/**",
-			"/*/admin/webjars/**", "/*/admin/swagger-ui/index.html");
-
 	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 300;
 
 	/** 与 peach-auth-service 签发默认一致；仅内存常量，不由配置文件注入 */
 	private static final String JWT_HS256_SECRET_PLAINTEXT = "550e8400-e29b-41d4-a716-446655440000";
 
-	private final AntPathMatcher pathMatcher = new AntPathMatcher();
+	private final JwtAnonymousRuleCache anonymousRuleCache;
 
 	private volatile SecretKey verificationKey;
+
+	public TokenGlobalFilter(JwtAnonymousRuleCache anonymousRuleCache) {
+		this.anonymousRuleCache = anonymousRuleCache;
+	}
 
 	/**
 	 * {@code OPTIONS} 直接放行；匿名路径放行；否则要求 {@code Authorization: Bearer}，解析 JWT 成功后替换请求 URI
@@ -119,7 +101,7 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 			return chain.filter(exchange);
 		}
 		String path = request.getURI().getPath();
-		if (isAnonymousPath(path)) {
+		if (anonymousRuleCache.matches(request.getMethod(), path)) {
 			return chain.filter(exchange);
 		}
 		String auth = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
@@ -139,15 +121,6 @@ public class TokenGlobalFilter implements GlobalFilter, Ordered {
 		} catch (IllegalStateException ex) {
 			return unauthorized(exchange, Message400.GATEWAY_AUTH_JWT_CONFIG);
 		}
-	}
-
-	private boolean isAnonymousPath(String path) {
-		for (String pattern : ANONYMOUS_PATTERNS) {
-			if (pathMatcher.match(pattern, path)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private Claims parseAndValidateClaims(String compactJwt) {

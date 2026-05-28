@@ -21,7 +21,8 @@ Peach API 网关（**Spring Cloud Gateway** + **Nacos 服务发现**），依赖
 | --- | --- |
 | 动态路由 | 注册中心服务变更监听与路由刷新（`peach.gateway.discovery.route-watch-interval-ms`） |
 | 统一鉴权 | 除匿名路径外要求 `Authorization: Bearer <JWT>` |
-| 文档入口 | 微服务文档经 `/{serviceId}/swagger-ui.html` 访问（与网关路由约定一致） |
+| 文档入口 | 门户 `GET /index.html`、`/peach-doc-portal/**`；微服务 Swagger 经 `/peach-gateway/{serviceId}/swagger-ui.html`；本网关 springdoc 经 `/peach-gateway/swagger-ui/**`（勿直连 `:8090/swagger-ui`） |
+| Shell 路由 | 本网关 shell 使用 `forward:/` + `ShellRouteForwardPathSupport`，避免 `lb://peach-gateway` 回环导致请求头膨胀；**无需** Cookie 剔头过滤器或 64KB 头大小兜底 |
 
 ## 使用说明
 
@@ -74,7 +75,8 @@ mvn -q test
 
 - 网关使用 **WebFlux**，不要引入阻塞式 Servlet 栈；与业务服务（MVC）技术栈分离。
 - **业务码前缀**：`spring.application.module-code: GWAY`（四位），与全局过滤器错误码拼装规则一致。
-- 新增匿名路径时同步维护 **`TokenGlobalFilter.ANONYMOUS_PATTERNS`**（含微服务 **`peach.api.context`** 为 **`/admin`** 时的 **`/{serviceId}/admin/...`** 与 **`/admin/...`** 镜像项，与无 context 的 **`/{serviceId}/...`** 并列）。
+- 新增 Swagger/文档匿名 GET 时同步维护 **`JwtAnonymousRuleCache`** 兜底规则中的路径模式。
+- 文档/Swagger 经网关访问时依赖 shell **`forward:/`** 本机转发，勿再引入 `lb://` 自指回环；若出现 `TooLongHttpHeaderException`，优先检查路由是否误走回环而非调大 Netty 头限制。
 
 ---
 

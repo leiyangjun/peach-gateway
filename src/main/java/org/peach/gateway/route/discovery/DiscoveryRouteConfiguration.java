@@ -1,5 +1,6 @@
 package org.peach.gateway.route.discovery;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +18,9 @@ public class DiscoveryRouteConfiguration {
 
 	/** 声明基于服务发现的 {@link DynamicDiscoveryRouteDefinitionLocator} Bean。 */
 	@Bean
-	public DynamicDiscoveryRouteDefinitionLocator dynamicDiscoveryRouteDefinitionLocator(DiscoveryClient discoveryClient) {
-		return new DynamicDiscoveryRouteDefinitionLocator(discoveryClient);
+	public DynamicDiscoveryRouteDefinitionLocator dynamicDiscoveryRouteDefinitionLocator(
+		DiscoveryClient discoveryClient, @Value("${spring.application.name}") String gatewayName) {
+		return new DynamicDiscoveryRouteDefinitionLocator(discoveryClient, gatewayName);
 	}
+
 }

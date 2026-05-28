@@ -5,30 +5,19 @@ server:
 
 peach:
   gateway:
-    # 路由排查 JSON：GET http://网关:8090/routes（匿名，见 TokenGlobalFilter）
-    # JWT 匿名路径清单在代码 TokenGlobalFilter.ANONYMOUS_PATTERNS；下游 context=/admin 时已包含 /{serviceId}/admin/... 与 /admin/... 对应项
+    # 路由排查 JSON：GET http://网关:8090/routes（匿名，见动态白名单配置）
     discovery:
       # RouteListWatcher：比对注册中心服务列表变更并 RefreshRoutes（毫秒）
       route-watch-interval-ms: ${PEACH_GATEWAY_ROUTE_WATCH_INTERVAL_MS:10000}
-    # 浏览器跨域（Vite 直连 http://127.0.0.1:8090）；生产在 profile / Nacos 覆盖 allowed-origin-patterns
-    cors:
-      allowed-origin-patterns:
-        - http://localhost:5173
-        - http://127.0.0.1:5173
-      allow-credentials: true
-      max-age: 3600
-
-# 网关本机 Swagger（WebFlux + springdoc）：非聚合，仅扫描网关自身 Controller
-# UI：http://网关:8090/swagger-ui.html ；OpenAPI：http://网关:8090/v3/api-docs
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-  show-actuator: false
-  packages-to-scan: org.peach.gateway.web
 
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:192.168.99.100}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 3s
   application:
     name: peach-gateway
     # 四位模块前缀，与业务服务一致，供网关 11 位 code 拼装（见 GatewayApiResultCodeComposer）；网关不做业务末四位区间校验
@@ -58,8 +47,6 @@ management:
     discovery:
       enabled: true
 # Swagger 文档门户：peach.swagger.enabled；HTML 另受 peach.swagger.html-enabled 与 prod/product/produce profile 默认关闭规则约束
-# 服务列表：GET /peach-doc-portal/services；门户页：GET /index.html
-# 经网关访问某微服务 Swagger（路径必须带注册中心 serviceId 前缀，与 DynamicDiscoveryRouteDefinitionLocator 一致）：
-#   http://网关主机:8090/{serviceId}/swagger-ui.html  例如 /peach-auth-service/swagger-ui.html
-# 网关自身 springdoc UI：/swagger-ui.html（见上文 springdoc）；微服务仍用 /{serviceId}/swagger-ui.html。
+# 文档门户：GET /peach-doc-portal/services、/index.html（不经 /peach-gateway 前缀）
+# 其它经网关访问：/peach-gateway/{serviceId}/... ；本网关 springdoc：/peach-gateway/swagger-ui.html
 # 各微服务可在 server.description 配置说明（写入 Nacos 实例元数据键 server.description）；需 server.forward-headers-strategy: framework

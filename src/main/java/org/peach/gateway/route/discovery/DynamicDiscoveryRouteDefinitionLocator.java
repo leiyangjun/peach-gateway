@@ -1,90 +1,160 @@
 package org.peach.gateway.route.discovery;
 
 import java.net.URI;
-import java.util.Locale;
-
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
-import org.springframework.cloud.gateway.filter.factory.AddRequestHeaderGatewayFilterFactory;
 import org.springframework.cloud.gateway.filter.factory.RewritePathGatewayFilterFactory;
 import org.springframework.cloud.gateway.handler.predicate.PathRoutePredicateFactory;
 import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.cloud.gateway.support.NameUtils;
-import org.springframework.util.StringUtils;
-
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * 基于 {@link DiscoveryClient#getServices()} 为每个服务 id 生成一条路由定义：
- * 匹配 {@code /{serviceId}/**}，转发至 {@code lb://{serviceId}}，并追加 {@code X-Forwarded-Prefix}、
- * {@code X-Peach-Gateway-Prefix} 与 {@code RewritePath} 去掉 URL 中的服务前缀段。
- *
- * @author leiyangjun
+ * 基于 {@link DiscoveryClient#getServices()} 为每个服务 id 生成路由：
+ * <ul>
+ * <li>{@code /peach-gateway/{serviceId}/**}（推荐统一入口）</li>
+ * <li>{@code /{serviceId}/**}（兼容旧路径）</li>
+ * </ul>
+ * 转发至 {@code lb://{serviceId}}，{@code RewritePath} 去掉 URL 中的前缀段。
+ * <p>
+ * 不向本进程注册 {@code spring.application.name} 对应的发现路由：网关已在 Nacos 注册为 {@code peach-gateway} 时，若再生成
+ * {@code lb://peach-gateway} 会与 {@link org.peach.gateway.route.PeachGatewayShellRouteDefinitionLocator} 的
+ * {@code /peach-gateway/** → forward:/} 冲突，并产生 {@code /peach-gateway/peach-gateway/**} 等错误回环路径。
+ * </p>
  */
+
 public class DynamicDiscoveryRouteDefinitionLocator implements RouteDefinitionLocator {
 
-	private static final String ROUTE_ID_PREFIX = "discovery";
-
-	private static final boolean LOWER_CASE_SERVICE_ID = true;
+	private static final Logger log = LoggerFactory.getLogger(DynamicDiscoveryRouteDefinitionLocator.class);
 
 	private final DiscoveryClient discoveryClient;
 
-	public DynamicDiscoveryRouteDefinitionLocator(DiscoveryClient discoveryClient) {
+	/** 与 {@code spring.application.name} 对齐、经规范化后的本地服务名，用于排除自路由 */
+	private final String gatewayName;
+
+	/**
+	 * 
+	 * @Title: DynamicDiscoveryRouteDefinitionLocator
+	 * @Description:
+	 * @param: @param discoveryClient
+	 * @param: @param applicationName 网关的服务名称
+	 * @throws
+	 */
+	public DynamicDiscoveryRouteDefinitionLocator(DiscoveryClient discoveryClient, String gatewayName) {
 		this.discoveryClient = discoveryClient;
+		this.gatewayName = gatewayName;
 	}
 
-	/** 在弹性线程上拉取服务名并映射为路由定义。 */
 	@Override
 	public Flux<RouteDefinition> getRouteDefinitions() {
-		return serviceIds().map(this::normalizeServiceId).filter(StringUtils::hasText).map(this::buildRoute);
+		log.info("Refreshing dynamic routes from DiscoveryClient (blocking) ...");
+		// 使用 Mono.fromCallable 将阻塞调用隔离到弹性线程池，避免阻塞 Netty 事件循环
+		return Mono.fromCallable(() -> {
+			List<String> services = discoveryClient.getServices();
+			log.debug("Discovered services: {}", services);
+			List<RouteDefinition> definitions = new ArrayList<>();
+			for (String serviceId : services) {
+				if (serviceId.equalsIgnoreCase(gatewayName)) {
+					definitions.add(createGatewayRoute(serviceId));
+				} else {
+					definitions.add(createServiceRoute(serviceId));
+				}
+			}
+			return definitions;
+		}).subscribeOn(Schedulers.boundedElastic()) // 将阻塞操作调度到弹性线程池
+			.flatMapMany(Flux::fromIterable) // 将 List<RouteDefinition> 转为 Flux<RouteDefinition>
+			.doOnComplete(() -> log.info("Dynamic routes refresh completed"));
 	}
 
-	/** 阻塞式 DiscoveryClient 调用，调度至 boundedElastic 线程池。 */
-	private Flux<String> serviceIds() {
-		return Mono.fromCallable(() -> discoveryClient.getServices())
-				.subscribeOn(Schedulers.boundedElastic())
-				.flatMapMany(Flux::fromIterable);
+	/**
+	 * 根据 ServiceInstance 创建 RouteDefinition。 规则： - id = serviceId - uri = lb://serviceId - predicates =
+	 * Path=/serviceId/** - filters = StripPrefix=1 (去掉第一级路径)
+	 */
+	private RouteDefinition createServiceRoute(String serviceId) {
+		RouteDefinition definition = new RouteDefinition();
+		definition.setId(serviceId);
+		definition.setUri(URI.create("lb://" + serviceId));
+		definition.setOrder(0);
+
+		// 1. 断言：Path 匹配
+		PredicateDefinition predicateDef = new PredicateDefinition();
+		predicateDef.setName("Path");
+		Map<String, String> predicateArgs = new HashMap<>();
+		predicateArgs.put("pattern", "/" + serviceId + "/**");
+		predicateDef.setArgs(predicateArgs);
+		definition.setPredicates(Collections.singletonList(predicateDef));
+
+		// 2. 过滤器列表
+		List<FilterDefinition> filters = new ArrayList<>();
+
+		// 2.1 添加 X-Forwarded-Prefix 头（关键！）
+		FilterDefinition prefixFilter = new FilterDefinition();
+		prefixFilter.setName("AddRequestHeader");
+		Map<String, String> prefixArgs = new HashMap<>();
+		prefixArgs.put("name", "X-Forwarded-Prefix");
+		prefixArgs.put("value", "/" + serviceId);
+		prefixFilter.setArgs(prefixArgs);
+		filters.add(prefixFilter);
+
+		// 2.2 剥离路径前缀（StripPrefix=1）
+		FilterDefinition stripFilter = new FilterDefinition();
+		stripFilter.setName("StripPrefix");
+		Map<String, String> stripArgs = new HashMap<>();
+		stripArgs.put("parts", "1");
+		stripFilter.setArgs(stripArgs);
+		filters.add(stripFilter);
+
+		definition.setFilters(filters);
+		// definition.setMetadata(Map.of("discovered", "true", "serviceId", serviceId));
+		return definition;
 	}
 
-	private String normalizeServiceId(String rawId) {
-		if (!StringUtils.hasText(rawId)) {
-			return "";
-		}
-		return LOWER_CASE_SERVICE_ID ? rawId.toLowerCase(Locale.ROOT) : rawId;
-	}
+	public RouteDefinition createGatewayRoute(String gatewayName) {
+		String prefix = "/peach-gateway"; // 假设值为 "/peach-gateway"
+	    
+	    RouteDefinition def = new RouteDefinition();
+	    def.setId(gatewayName);
+	    def.setUri(URI.create("forward:/"));
+	    def.setOrder(10_000);
 
-	private RouteDefinition buildRoute(String serviceId) {
-		RouteDefinition def = new RouteDefinition();
-		def.setId(ROUTE_ID_PREFIX + "-" + serviceId);
-		def.setUri(URI.create("lb://" + serviceId));
+	    // 1. 路径断言：匹配 /peach-gateway/**
+	    PredicateDefinition pathPredicate = new PredicateDefinition();
+	    pathPredicate.setName(NameUtils.normalizeRoutePredicateName(PathRoutePredicateFactory.class));
+	    pathPredicate.addArg("pattern", prefix + "/**");
+	    def.getPredicates().add(pathPredicate);
 
-		PredicateDefinition path = new PredicateDefinition();
-		path.setName(NameUtils.normalizeRoutePredicateName(PathRoutePredicateFactory.class));
-		path.addArg("pattern", "/" + serviceId + "/**");
-		def.getPredicates().add(path);
+	    // 2. 添加 RewritePath 过滤器（关键！）
+	    FilterDefinition rewriteFilter = new FilterDefinition();
+	    rewriteFilter.setName(NameUtils.normalizeFilterFactoryName(RewritePathGatewayFilterFactory.class));
+	    // 正则：/peach-gateway/(?<remaining>.*)  ->  /${remaining}
+	    rewriteFilter.addArg("regexp", prefix + "/(?<remaining>.*)");
+	    rewriteFilter.addArg("replacement", "/${remaining}");
+	    def.getFilters().add(rewriteFilter);
+	    
+	    def.setFilters(Arrays.asList(
+	        new FilterDefinition("CustomForwardPathFilter"), // 注入刚定义的自定义过滤器
+	        rewriteFilter
+	    ));
 
-		FilterDefinition fwdPrefix = new FilterDefinition();
-		fwdPrefix.setName(NameUtils.normalizeFilterFactoryName(AddRequestHeaderGatewayFilterFactory.class));
-		fwdPrefix.addArg("name", "X-Forwarded-Prefix");
-		fwdPrefix.addArg("value", "/" + serviceId);
-		def.getFilters().add(fwdPrefix);
+	    // 可选：如果还需要添加 X-Forwarded-Prefix 头（虽然 forward:/ 不需要，但保留无妨）
+	    // FilterDefinition headerFilter = new FilterDefinition();
+	    // headerFilter.setName("AddRequestHeader");
+	    // headerFilter.addArg("name", "X-Forwarded-Prefix");
+	    // headerFilter.addArg("value", prefix);
+	    // def.getFilters().add(headerFilter);
 
-		FilterDefinition peachPrefix = new FilterDefinition();
-		peachPrefix.setName(NameUtils.normalizeFilterFactoryName(AddRequestHeaderGatewayFilterFactory.class));
-		peachPrefix.addArg("name", "X-Peach-Gateway-Prefix");
-		peachPrefix.addArg("value", "/" + serviceId);
-		def.getFilters().add(peachPrefix);
-
-		FilterDefinition rewrite = new FilterDefinition();
-		rewrite.setName(NameUtils.normalizeFilterFactoryName(RewritePathGatewayFilterFactory.class));
-		rewrite.addArg("regexp", "/" + serviceId + "/?(?<remaining>.*)");
-		rewrite.addArg("replacement", "/${remaining}");
-		def.getFilters().add(rewrite);
-
-		return def;
+	    return def;
 	}
 }
