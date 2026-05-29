@@ -1,20 +1,30 @@
-package org.peach.gateway.redis;
+package org.peach.gateway.redis.config;
 
+import org.peach.gateway.redis.GatewayRedisAccessor;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
- * 网关 Redis 基础设施：仅注册字符串 {@link RedisTemplate}，完整键由 {@link CommRedisKeyBuilder} 拼装。
+ * 网关 Redis 自动配置：在 Boot Data Redis 之后注册 {@code gatewayRedisTemplate} 与 {@link GatewayRedisAccessor}。
+ * <p>
+ * 须在 Boot 4 {@code DataRedisAutoConfiguration} 之后评估，否则 {@code @ConditionalOnBean} 过早判定为无 Bean 而整类被跳过。
+ * </p>
  *
  * @author leiyangjun
  */
-@Configuration
+@AutoConfiguration(afterName = {
+		"org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
+		"org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration"
+})
+@ConditionalOnClass(RedisTemplate.class)
 @ConditionalOnBean(RedisConnectionFactory.class)
-public class GatewayRedisConfiguration {
+public class GatewayRedisAutoConfiguration {
 
 	/**
 	 * 字符串 RedisTemplate：Key/Value 均为明文，不经 MODULE-PROFILE 前缀序列化器。
@@ -31,6 +41,12 @@ public class GatewayRedisConfiguration {
 		template.setEnableDefaultSerializer(false);
 		template.afterPropertiesSet();
 		return template;
+	}
+
+	@Bean
+	GatewayRedisAccessor gatewayRedisAccessor(
+			@Qualifier("gatewayRedisTemplate") RedisTemplate<String, String> redisTemplate) {
+		return new GatewayRedisAccessor(redisTemplate);
 	}
 
 }

@@ -8,8 +8,6 @@ import org.peach.gateway.redis.CommRedisKeyBuilder;
 import org.peach.gateway.redis.GatewayRedisAccessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.json.JsonMapper;
@@ -20,7 +18,6 @@ import tools.jackson.databind.json.JsonMapper;
  * @author leiyangjun
  */
 @Component
-@ConditionalOnBean(RedisConnectionFactory.class)
 public class ApisLoader {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ApisLoader.class);

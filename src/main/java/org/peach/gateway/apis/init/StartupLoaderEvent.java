@@ -1,11 +1,10 @@
 package org.peach.gateway.apis.init;
 
 import org.peach.gateway.apis.loader.ApisLoader;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 
@@ -14,21 +13,20 @@ import org.springframework.stereotype.Component;
  * @author: Administrator
  * @date: 2026年5月29日 18:24:42
  */
+@Slf4j
 @Component
-@ConditionalOnBean(RedisConnectionFactory.class)
 public class StartupLoaderEvent {
 
-	private final ApisLoader snapshotLoader;
+    private final ApisLoader snapshotLoader;
 
-	public StartupLoaderEvent(ApisLoader snapshotLoader) {
-		this.snapshotLoader = snapshotLoader;
-	}
+    public StartupLoaderEvent(ApisLoader snapshotLoader) {
+        this.snapshotLoader = snapshotLoader;
+    }
 
-	/** 启动时全量拉取 Redis 快照。 */
-	@EventListener(ApplicationReadyEvent.class)
-	public void loadOnStartup() {
-		snapshotLoader.refreshFromRedis();
-		//
-	}
-
+    @EventListener(ApplicationReadyEvent.class)
+    public void loadOnStartup(ApplicationReadyEvent event) {
+        log.info("Application is ready, loading Redis snapshot...");
+        snapshotLoader.refreshFromRedis();
+        log.info("Redis snapshot loaded");
+    }
 }

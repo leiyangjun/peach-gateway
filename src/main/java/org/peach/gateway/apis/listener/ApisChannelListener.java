@@ -30,9 +30,10 @@ public class ApisChannelListener {
 	}
 
 	/**
-	 * Pub/Sub 回调：消息体为 common-service 发布的 revision（Jackson JSON Long，如 {@code 2}）。
+	 * Pub/Sub 回调：消息体为 common-service 经 {@code redisAccessor.publish} 发布的纯文本 revision（如 {@code "2"}）。
 	 */
 	public void onMessage(String message) {
+		LOG.info("ApisChannelListener 收到消息 body={}", message);
 		Long incoming = parseRevision(message);
 		if (incoming == null) {
 			LOG.warn("免鉴权快照频道消息无法解析 revision，忽略 body={}", message);
@@ -52,11 +53,21 @@ public class ApisChannelListener {
 		if (!StringUtils.hasText(raw)) {
 			return null;
 		}
-		try {
-			return JSON.readValue(raw.trim(), Long.class);
+		String trimmed = raw.trim();
+		if ((trimmed.startsWith("\"") && trimmed.endsWith("\""))
+				|| (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+			trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
 		}
-		catch (Exception ex) {
-			return null;
+		try {
+			return Long.parseLong(trimmed);
+		}
+		catch (NumberFormatException ex) {
+			try {
+				return JSON.readValue(trimmed, Long.class);
+			}
+			catch (Exception jsonEx) {
+				return null;
+			}
 		}
 	}
 
