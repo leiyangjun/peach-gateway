@@ -2,7 +2,6 @@ package org.peach.gateway.route.discovery;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -11,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
-import org.springframework.cloud.gateway.filter.factory.RewritePathGatewayFilterFactory;
 import org.springframework.cloud.gateway.handler.predicate.PathRoutePredicateFactory;
 import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinition;
@@ -122,39 +120,18 @@ public class DynamicDiscoveryRouteDefinitionLocator implements RouteDefinitionLo
 	}
 
 	public RouteDefinition createGatewayRoute(String gatewayName) {
-		String prefix = "/peach-gateway"; // 假设值为 "/peach-gateway"
-	    
-	    RouteDefinition def = new RouteDefinition();
-	    def.setId(gatewayName);
-	    def.setUri(URI.create("forward:/"));
-	    def.setOrder(10_000);
+		String prefix = "/peach-gateway";
 
-	    // 1. 路径断言：匹配 /peach-gateway/**
-	    PredicateDefinition pathPredicate = new PredicateDefinition();
-	    pathPredicate.setName(NameUtils.normalizeRoutePredicateName(PathRoutePredicateFactory.class));
-	    pathPredicate.addArg("pattern", prefix + "/**");
-	    def.getPredicates().add(pathPredicate);
+		RouteDefinition def = new RouteDefinition();
+		def.setId("peach-gateway-shell");
+		def.setUri(URI.create("forward:/"));
+		def.setOrder(10_000);
 
-	    // 2. 添加 RewritePath 过滤器（关键！）
-	    FilterDefinition rewriteFilter = new FilterDefinition();
-	    rewriteFilter.setName(NameUtils.normalizeFilterFactoryName(RewritePathGatewayFilterFactory.class));
-	    // 正则：/peach-gateway/(?<remaining>.*)  ->  /${remaining}
-	    rewriteFilter.addArg("regexp", prefix + "/(?<remaining>.*)");
-	    rewriteFilter.addArg("replacement", "/${remaining}");
-	    def.getFilters().add(rewriteFilter);
-	    
-	    def.setFilters(Arrays.asList(
-	        new FilterDefinition("CustomForwardPathFilter"), // 注入刚定义的自定义过滤器
-	        rewriteFilter
-	    ));
+		PredicateDefinition pathPredicate = new PredicateDefinition();
+		pathPredicate.setName(NameUtils.normalizeRoutePredicateName(PathRoutePredicateFactory.class));
+		pathPredicate.addArg("pattern", prefix + "/**");
+		def.getPredicates().add(pathPredicate);
 
-	    // 可选：如果还需要添加 X-Forwarded-Prefix 头（虽然 forward:/ 不需要，但保留无妨）
-	    // FilterDefinition headerFilter = new FilterDefinition();
-	    // headerFilter.setName("AddRequestHeader");
-	    // headerFilter.addArg("name", "X-Forwarded-Prefix");
-	    // headerFilter.addArg("value", prefix);
-	    // def.getFilters().add(headerFilter);
-
-	    return def;
+		return def;
 	}
 }

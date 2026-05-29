@@ -51,7 +51,7 @@
 		function swaggerUrl(serviceId) {
 			var sid = (serviceId || '').toLowerCase();
 			if (sid === 'peach-gateway') {
-				return gatewayPrefix + '/swagger-ui/index.html';
+				return '/swagger-ui/index.html';
 			}
 			return gatewayPrefix + '/' + serviceId + '/swagger-ui.html';
 		}
