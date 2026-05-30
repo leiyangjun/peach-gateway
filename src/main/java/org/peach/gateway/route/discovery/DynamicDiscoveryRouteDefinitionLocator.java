@@ -6,8 +6,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
 import org.springframework.cloud.gateway.handler.predicate.PathRoutePredicateFactory;
@@ -15,6 +13,7 @@ import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.cloud.gateway.support.NameUtils;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -32,10 +31,8 @@ import reactor.core.scheduler.Schedulers;
  * {@code /peach-gateway/** → forward:/} 冲突，并产生 {@code /peach-gateway/peach-gateway/**} 等错误回环路径。
  * </p>
  */
-
+@Slf4j
 public class DynamicDiscoveryRouteDefinitionLocator implements RouteDefinitionLocator {
-
-	private static final Logger log = LoggerFactory.getLogger(DynamicDiscoveryRouteDefinitionLocator.class);
 
 	private final DiscoveryClient discoveryClient;
 

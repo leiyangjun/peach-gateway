@@ -1,8 +1,8 @@
 package org.peach.gateway.apis.filter;
 
-import java.util.List;
 import org.peach.gateway.apis.cache.UnauthApiCache;
 import org.peach.gateway.apis.model.ApiModel;
+import org.peach.gateway.common.GatewayExchangeAttributes;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -15,7 +15,8 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * 白名单过滤器：按 {@link UnauthApiCache} 中的 method + finalPath（Ant 模式）匹配，命中则标记 skipAuth。
+ * 白名单过滤器：按 {@link UnauthApiCache} 中的 method + finalPath（Ant 模式）匹配，
+ * 按 {@code accessType} 设置 {@link GatewayExchangeAttributes#SKIP_AUTH} 或 {@link GatewayExchangeAttributes#SKIP_PERMISSION}。
  *
  * @author leiyangjun
  */
@@ -23,45 +24,66 @@ import reactor.core.publisher.Mono;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class WhitelistFilter implements GlobalFilter {
 
+	/** 免登录白名单 */
+	private static final short ACCESS_TYPE_SKIP_AUTH = 1;
+
+	/** 需登录但跳过权限校验 */
+	private static final short ACCESS_TYPE_SKIP_PERMISSION = 2;
+
 	private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-		if (matchesWhitelist(exchange.getRequest().getMethod(), exchange.getRequest().getURI().getPath())) {
-			exchange.getAttributes().put("skipAuth", true);
-		}
+		HttpMethod method = exchange.getRequest().getMethod();
+		String path = exchange.getRequest().getURI().getPath();
+		applyMatchedAccessType(exchange, method, path, UnauthApiCache.getApis());
 		return chain.filter(exchange);
 	}
 
-	private boolean matchesWhitelist(HttpMethod httpMethod, String path) {
-		if (!StringUtils.hasText(path)) {
-			return false;
+	/**
+	 * 多条规则同时命中时：任一 accessType=1 则免登录；否则任一 accessType=2 则仅跳过权限。
+	 */
+	private void applyMatchedAccessType(ServerWebExchange exchange, HttpMethod httpMethod, String path,
+			java.util.List<ApiModel> rules) {
+		if (httpMethod == null || !StringUtils.hasText(path) || rules == null || rules.isEmpty()) {
+			return;
 		}
-		List<ApiModel> apis = UnauthApiCache.getApis();
-		if (apis.isEmpty()) {
-			return false;
-		}
-		for (ApiModel item : apis) {
-			if (item == null || !StringUtils.hasText(item.getFinalPath())) {
+		boolean anySkipPermission = false;
+		for (ApiModel item : rules) {
+			if (!matchesRule(httpMethod, path, item)) {
 				continue;
 			}
-			String ruleMethod = item.getMethod() == null ? "" : item.getMethod().trim();
-			if (!StringUtils.hasText(ruleMethod) || "ALL".equalsIgnoreCase(ruleMethod)) {
-				continue;
+			Short accessType = item.getAccessType();
+			if (isSkipAuth(accessType)) {
+				exchange.getAttributes().put(GatewayExchangeAttributes.SKIP_AUTH, true);
+				return;
 			}
-			if (methodMatches(ruleMethod, httpMethod)
-					&& pathMatcher.match(item.getFinalPath().trim(), path)) {
-				return true;
+			if (isSkipPermission(accessType)) {
+				anySkipPermission = true;
 			}
 		}
-		return false;
+		if (anySkipPermission) {
+			exchange.getAttributes().put(GatewayExchangeAttributes.SKIP_PERMISSION, true);
+		}
 	}
 
-	private static boolean methodMatches(String ruleMethod, HttpMethod requestMethod) {
-		if (requestMethod == null || !StringUtils.hasText(ruleMethod)) {
+	private boolean matchesRule(HttpMethod httpMethod, String path, ApiModel item) {
+		if (item == null || !StringUtils.hasText(item.getFinalPath())) {
 			return false;
 		}
-		return ruleMethod.equalsIgnoreCase(requestMethod.name());
+		String ruleMethod = item.getMethod();
+		if (!StringUtils.hasText(ruleMethod)) {
+			return false;
+		}
+		return ruleMethod.trim().equalsIgnoreCase(httpMethod.name())
+				&& pathMatcher.match(item.getFinalPath().trim(), path);
 	}
 
+	private static boolean isSkipAuth(Short accessType) {
+		return accessType != null && accessType.shortValue() == ACCESS_TYPE_SKIP_AUTH;
+	}
+
+	private static boolean isSkipPermission(Short accessType) {
+		return accessType != null && accessType.shortValue() == ACCESS_TYPE_SKIP_PERMISSION;
+	}
 }

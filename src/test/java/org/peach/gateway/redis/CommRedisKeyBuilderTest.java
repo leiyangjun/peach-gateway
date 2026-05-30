@@ -14,6 +14,8 @@ class CommRedisKeyBuilderTest {
 	void commKey_usesCommModuleAndUppercaseProfile() {
 		CommRedisKeyBuilder builder = new CommRedisKeyBuilder("dev");
 		assertEquals("COMM-DEV-UNAUTHAPI", builder.commKey("UNAUTHAPI"));
+		assertEquals("COMM-DEV-ROLE_APIS", builder.commKey("ROLE_APIS"));
+		assertEquals("COMM-DEV-ROLE_USERS", builder.commKey("ROLE_USERS"));
 	}
 
 	@Test

@@ -21,6 +21,7 @@ Peach API 网关（**Spring Cloud Gateway** + **Nacos 服务发现**），依赖
 | --- | --- |
 | 动态路由 | 注册中心服务变更监听与路由刷新（`peach.gateway.discovery.route-watch-interval-ms`） |
 | 统一鉴权 | 除匿名路径外要求 `Authorization: Bearer <JWT>` |
+| API 权限 | JWT 通过后按 Redis 快照 `ROLE_USERS` + `ROLE_APIS` 校验；无权限 **403**（`GWAY4034003`） |
 | 文档入口 | 门户 `GET /index.html`、`/peach-doc-portal/**`；微服务 Swagger 经 `/peach-gateway/{serviceId}/swagger-ui.html`；本网关 springdoc 经 `/peach-gateway/swagger-ui/**`（勿直连 `:8090/swagger-ui`） |
 | Shell 路由 | 本网关 shell 使用 `forward:/` + `ShellRouteForwardPathSupport`，避免 `lb://peach-gateway` 回环导致请求头膨胀；**无需** Cookie 剔头过滤器或 64KB 头大小兜底 |
 
@@ -101,9 +102,20 @@ mvn -q test
 - **不职责**：**不**改写「已匹配动态路由并成功转发到下游」时的响应体；该场景下游原样返回（含下游 4xx/5xx 的 body）。
 - **响应**：HTTP 状态与异常一致；`Content-Type: application/json;charset=UTF-8`；JSON 体为 **`ErrorResult`**（`code` / `msg`）。
 
-### 过滤器错误（`TokenGlobalFilter`）
+### 过滤器错误（`TokenAuthFilter` / `PermissionFilter`）
 
 对非匿名路径校验 JWT；失败时 HTTP **401**，体为 **`ErrorResult.unauthorized(Message400.*)`**，末段为 **4001–4008** 中对应枚举值（见 `Message400` 源码）。
+
+JWT 通过后，`PermissionFilter`（`@Order(HIGHEST_PRECEDENCE + 2)`）按本地缓存的 **ROLE_USERS**（userId→roleCode 反查）与 **ROLE_APIS**（roleCode→method+finalPath）判定 API 权限；无权限时 HTTP **403**，体为 **`ErrorResult.forbidden(Message400.GATEWAY_FORBIDDEN)`** → **`GWAY4034003`**。白名单（`skipAuth`）、OPTIONS、超级管理员用户名 `admin`（与 common-service `RoleServiceImpl.ADMIN_USER` 一致）跳过权限校验。
+
+**Redis 键/频道**（`CommRedisKeyBuilder`，profile 与 common-service 一致）：
+
+| 含义 | 快照键 | Pub/Sub 频道 |
+| --- | --- | --- |
+| 角色-用户 | `COMM-{PROFILE}-ROLE_USERS` | `COMM-{PROFILE}-ROLE_USERS` |
+| 角色-API | `COMM-{PROFILE}-ROLE_APIS` | `COMM-{PROFILE}-ROLE_APIS` |
+
+**生效条件**：存在 `GatewayRedisAccessor` Bean 时自动启用，无开关配置。
 
 **生效范围（与当前 WebFlux + Gateway 装配一致）**：仅当请求**匹配到**基于服务发现的动态路由（`DynamicDiscoveryRouteDefinitionLocator` 生成的 `Path=/{serviceId}/**`）并进入 Spring Cloud Gateway 全局过滤器链时，`TokenGlobalFilter` 才会执行。若当前无可用动态路由或路径未命中任一 Gateway 路由，请求会落到本机 `@RestController` 或静态资源处理；此时**不会**经过 `TokenGlobalFilter`，也就不会出现 JWT 相关的 401（例如单测里 `WebTestClient.bindToApplicationContext` 访问未映射路径时，常见为静态资源 404 再经 `GlobalErrorWebExceptionHandler` 转为隔离层 JSON）。
 

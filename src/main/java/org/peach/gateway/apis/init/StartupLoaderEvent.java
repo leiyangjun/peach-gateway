@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
  * 
  * @Title: StartupLoaderEvent.java
  * @Description: springboot启动事件，启动时加载redis缓存
- * @author: Administrator
+ * @author: leiyangjun
  * @date: 2026年5月29日 18:24:42
  */
 @Slf4j
@@ -25,8 +25,8 @@ public class StartupLoaderEvent {
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadOnStartup(ApplicationReadyEvent event) {
-        log.info("Application is ready, loading Redis snapshot...");
+        log.info("Application is ready, loading Redis unanth apis snapshot...");
         snapshotLoader.refreshFromRedis();
-        log.info("Redis snapshot loaded");
+        log.info("Redis unanth apis snapshot loaded");
     }
 }

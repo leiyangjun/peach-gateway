@@ -2,12 +2,11 @@ package org.peach.gateway.apis.listener;
 
 import org.peach.gateway.apis.cache.UnauthApiCache;
 import org.peach.gateway.apis.loader.ApisLoader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -16,10 +15,9 @@ import tools.jackson.databind.json.JsonMapper;
  * @author leiyangjun
  */
 @Component
+@Slf4j
 @ConditionalOnBean(RedisConnectionFactory.class)
 public class ApisChannelListener {
-
-	private static final Logger LOG = LoggerFactory.getLogger(ApisChannelListener.class);
 
 	private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -33,19 +31,19 @@ public class ApisChannelListener {
 	 * Pub/Sub 回调：消息体为 common-service 经 {@code redisAccessor.publish} 发布的纯文本 revision（如 {@code "2"}）。
 	 */
 	public void onMessage(String message) {
-		LOG.info("ApisChannelListener 收到消息 body={}", message);
+		log.info("ApisChannelListener 收到消息 body={}", message);
 		Long incoming = parseRevision(message);
 		if (incoming == null) {
-			LOG.warn("免鉴权快照频道消息无法解析 revision，忽略 body={}", message);
+			log.warn("免鉴权快照频道消息无法解析 revision，忽略 body={}", message);
 			return;
 		}
 		Long local = UnauthApiCache.getRevision();
 		long localRev = local == null ? 0L : local;
 		if (incoming <= localRev) {
-			LOG.debug("免鉴权快照 revision 未递增，跳过拉取 incoming={} local={}", incoming, localRev);
+			log.debug("免鉴权快照 revision 未递增，跳过拉取 incoming={} local={}", incoming, localRev);
 			return;
 		}
-		LOG.info("收到免鉴权快照变更通知 revision={} local={}，拉取快照", incoming, localRev);
+		log.info("收到免鉴权快照变更通知 revision={} local={}，拉取快照", incoming, localRev);
 		snapshotLoader.refreshFromRedis();
 	}
 

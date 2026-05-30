@@ -9,6 +9,9 @@ public class ApiModel {
 
 	private String finalPath;
 
+	/** 访问类型：1=免登录 2=需登录免权限；缺省或未知值不生效 */
+	private Short accessType;
+
 	public String getMethod() {
 		return method;
 	}
@@ -23,5 +26,13 @@ public class ApiModel {
 
 	public void setFinalPath(String finalPath) {
 		this.finalPath = finalPath;
+	}
+
+	public Short getAccessType() {
+		return accessType;
+	}
+
+	public void setAccessType(Short accessType) {
+		this.accessType = accessType;
 	}
 }

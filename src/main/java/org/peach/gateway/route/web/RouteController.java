@@ -2,7 +2,6 @@ package org.peach.gateway.route.web;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.peach.gateway.common.result.web.ApiResult;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.gateway.route.Route;
@@ -12,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import reactor.core.publisher.Mono;
@@ -62,7 +60,7 @@ public class RouteController {
 
 	/** 路由诊断响应体（JSON）。 */
 	public record GatewayRoutesSnapshot(long generatedAtEpochMs, List<String> discoveryServiceNames,
-			List<RouteSummary> routes) {
+		List<RouteSummary> routes) {
 	}
 
 	/** 单条路由摘要。 */

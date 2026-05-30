@@ -6,10 +6,9 @@ import org.peach.gateway.apis.model.ApiModel;
 import org.peach.gateway.apis.model.ApiSnapshot;
 import org.peach.gateway.redis.CommRedisKeyBuilder;
 import org.peach.gateway.redis.GatewayRedisAccessor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -18,9 +17,8 @@ import tools.jackson.databind.json.JsonMapper;
  * @author leiyangjun
  */
 @Component
+@Slf4j
 public class ApisLoader {
-
-	private static final Logger LOG = LoggerFactory.getLogger(ApisLoader.class);
 
 	private static final String BIZ_SNAPSHOT = "UNAUTHAPI";
 
@@ -41,7 +39,7 @@ public class ApisLoader {
 		try {
 			String json = redisAccessor.get(key);
 			if (!StringUtils.hasText(json)) {
-				LOG.warn("Redis 中无 JWT 匿名路径快照 key={}，清空本地缓存", key);
+				log.warn("Redis 中无 JWT 匿名路径快照 key={}，清空本地缓存", key);
 				UnauthApiCache.setRevision(0L);
 				UnauthApiCache.setApis(List.of());
 				return;
@@ -50,9 +48,9 @@ public class ApisLoader {
 			List<ApiModel> items = snapshot.getItems() == null ? List.of() : List.copyOf(snapshot.getItems());
 			UnauthApiCache.setRevision(snapshot.getRevision());
 			UnauthApiCache.setApis(items);
-			LOG.info("JWT 匿名路径缓存已刷新 revision={} items={} key={}", snapshot.getRevision(), items.size(), key);
+			log.debug("JWT 匿名路径缓存已刷新 revision={} items={} key={}", snapshot.getRevision(), items.size(), key);
 		} catch (Exception ex) {
-			LOG.error("JWT 匿名路径快照加载失败，保留当前缓存 key={}", key, ex);
+			log.error("JWT 匿名路径快照加载失败，保留当前缓存 key={}", key, ex);
 		}
 	}
 

@@ -8,7 +8,7 @@ import org.peach.gateway.common.bootstrap.config.ModuleCodeConfiguration;
  * 
  * @Title: UnauthApiCache.java
  * @Description: 缓存API白名单以及当前版本号
- * @author: Administrator
+ * @author: leiyangjun
  * @date: 2026年5月29日 17:35:22
  */
 public class UnauthApiCache {

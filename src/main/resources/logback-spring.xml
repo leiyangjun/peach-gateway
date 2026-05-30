@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  peach-gateway 统一 Logback（未引入 peach-common-start，本模块自带）。
+  策略与 peach-common-start 对齐：默认 root INFO、org.peach DEBUG；pro/produce/product/test 降噪为 WARN。
+  可由 application.yml 中 logging.level.* 覆盖；文件目录见 peach.logging.file.*。
+-->
+<configuration scan="true" scanPeriod="60 seconds">
+
+	<springProperty scope="context" name="PEACH_LOG_DIR" source="peach.logging.file.path" defaultValue="logs"/>
+	<springProperty scope="context" name="PEACH_MAIN_MAX_HISTORY" source="peach.logging.file.main-max-history" defaultValue="30"/>
+	<springProperty scope="context" name="PEACH_ERR_MAX_HISTORY" source="peach.logging.file.error-max-history" defaultValue="90"/>
+	<springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="peach-gateway"/>
+
+	<property name="ROOT_LEVEL" value="INFO"/>
+	<springProfile name="pro,produce,product,test">
+		<property name="ROOT_LEVEL" value="WARN"/>
+	</springProfile>
+
+	<property name="PEACH_LOG_PATTERN"
+			  value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level ${APP_NAME} %logger{50} - [%X{traceId}] %msg%n"/>
+
+	<contextName>peach-gateway</contextName>
+
+	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>${PEACH_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+	</appender>
+
+	<appender name="CONSOLE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${PEACH_LOG_DIR}/console.log</file>
+		<encoder>
+			<pattern>${PEACH_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${PEACH_LOG_DIR}/archive/console.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+			<maxHistory>${PEACH_MAIN_MAX_HISTORY}</maxHistory>
+			<cleanHistoryOnStart>false</cleanHistoryOnStart>
+		</rollingPolicy>
+	</appender>
+
+	<appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${PEACH_LOG_DIR}/error.log</file>
+		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+			<level>ERROR</level>
+		</filter>
+		<encoder>
+			<pattern>${PEACH_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${PEACH_LOG_DIR}/archive/error.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+			<maxHistory>${PEACH_ERR_MAX_HISTORY}</maxHistory>
+			<cleanHistoryOnStart>false</cleanHistoryOnStart>
+		</rollingPolicy>
+	</appender>
+
+	<logger name="org.peach.gateway" level="DEBUG"/>
+	<logger name="org.springframework.cloud.gateway" level="INFO"/>
+
+	<springProfile name="pro,produce,product,test">
+		<logger name="org.peach.gateway" level="WARN"/>
+		<logger name="org.springframework.cloud.gateway" level="WARN"/>
+	</springProfile>
+
+	<springProfile name="test">
+		<logger name="org.springframework.boot" level="INFO"/>
+		<logger name="org.springframework.boot.web" level="INFO"/>
+		<logger name="org.springframework.boot.diagnostics" level="ERROR"/>
+		<logger name="com.alibaba.cloud.nacos" level="INFO"/>
+		<logger name="com.alibaba.nacos" level="WARN"/>
+	</springProfile>
+
+	<root level="${ROOT_LEVEL}">
+		<appender-ref ref="CONSOLE"/>
+		<appender-ref ref="CONSOLE_FILE"/>
+		<appender-ref ref="ERROR_FILE"/>
+	</root>
+</configuration>

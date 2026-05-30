@@ -1,2 +1,3 @@
 org.peach.gateway.redis.config.GatewayRedisAutoConfiguration
 org.peach.gateway.apis.config.RedisListenerConfig
+org.peach.gateway.permission.config.RedisListenerConfig
